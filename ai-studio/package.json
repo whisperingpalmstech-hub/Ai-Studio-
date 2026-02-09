@@ -1,0 +1,31 @@
+{
+  "name": "ai-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise-Grade AI Image & Video Generation Platform",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules",
+    "dev:web": "pnpm --filter @ai-studio/web dev",
+    "dev:api": "pnpm --filter @ai-studio/api dev",
+    "db:migrate": "supabase db push",
+    "db:generate": "supabase gen types typescript --local > packages/database/types.ts",
+    "db:reset": "supabase db reset",
+    "db:studio": "supabase studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
