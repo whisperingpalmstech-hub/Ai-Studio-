@@ -114,7 +114,7 @@ export async function seedModels() {
         }
     ];
 
-    const validFiles = models.map(m => m.file_path);
+    const validFiles = models.map((m: any) => m.file_path);
 
     // 1. Delete models that are NOT in our valid list (only if they are system/public models)
     const { error: cleanupError } = await (supabaseAdmin

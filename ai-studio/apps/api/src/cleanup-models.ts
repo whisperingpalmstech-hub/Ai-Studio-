@@ -13,7 +13,7 @@ async function cleanupModels() {
 
     // Group by name to identify duplicates
     const nameGroups: Record<string, any[]> = {};
-    models.forEach(m => {
+    models.forEach((m: any) => {
         if (!nameGroups[m.name]) nameGroups[m.name] = [];
         nameGroups[m.name].push(m);
     });
@@ -36,7 +36,7 @@ async function cleanupModels() {
     for (const name of Object.keys(nameGroups)) {
         const group = nameGroups[name];
         if (group.length > 1) {
-            console.log(`Duplicates for "${name}":`, group.map(m => m.file_path));
+            console.log(`Duplicates for "${name}":`, group.map((m: any) => m.file_path));
         }
     }
 
@@ -53,7 +53,7 @@ async function cleanupModels() {
 
     // Also handle name duplicates within validFiles
     for (const name of Object.keys(nameGroups)) {
-        const group = nameGroups[name].filter(m => validFiles.includes(m.file_path));
+        const group = nameGroups[name].filter((m: any) => validFiles.includes(m.file_path));
         if (group.length > 1) {
             // Keep only the first one
             for (let i = 1; i < group.length; i++) {
