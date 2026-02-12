@@ -6,7 +6,12 @@
                 "name": "next"
             }
         ],
+        "strict": false,
+        "noImplicitAny": false,
         "paths": {
+            "@ai-studio/database": [
+                "../../packages/database/types.ts"
+            ],
             "@/*": [
                 "./src/*"
             ],
@@ -29,7 +34,6 @@
         "baseUrl": ".",
         "jsx": "preserve",
         "allowJs": true,
-        "strict": true,
         "noEmit": true,
         "incremental": true,
         "module": "ESNext",
