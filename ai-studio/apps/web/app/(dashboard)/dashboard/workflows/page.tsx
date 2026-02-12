@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Play, Trash2, Edit, Loader2, Calendar, Link as LinkIcon } from "lucide-react";
+import { Plus, Play, Trash2, Edit, Loader2, Calendar, Link as LinkIcon, Zap, Layout, Brush, History, Layers } from "lucide-react";
+import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
 
 interface Workflow {
     id: string;
@@ -11,6 +12,13 @@ interface Workflow {
     nodes: any[];
     updated_at: string;
 }
+
+const CATEGORY_ICONS: Record<string, any> = {
+    'Essentials': Zap,
+    'Transformation': Layout,
+    'Repair': Brush,
+    'Advanced': Layers
+};
 
 export default function WorkflowsPage() {
     const router = useRouter();
@@ -58,6 +66,36 @@ export default function WorkflowsPage() {
         }
     };
 
+    const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
+
+    const handleUseTemplate = async (template: any) => {
+        setCreatingTemplate(template.id);
+        try {
+            const response = await fetch('/api/workflows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: template.name,
+                    description: template.description,
+                    nodes: template.nodes,
+                    edges: template.edges
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                router.push(`/dashboard/workflows/editor?id=${data.workflow.id}`);
+            } else {
+                alert("Failed to create workflow from template");
+            }
+        } catch (error) {
+            console.error("Template error:", error);
+            alert("An error occurred");
+        } finally {
+            setCreatingTemplate(null);
+        }
+    };
+
     const handleEdit = (id: string) => {
         router.push(`/dashboard/workflows/editor?id=${id}`);
     };
@@ -72,7 +110,7 @@ export default function WorkflowsPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
-                        My Workflows
+                        Workflows
                     </h1>
                     <p style={{ color: '#9ca3af' }}>
                         Build, manage, and execute your AI pipelines
@@ -100,6 +138,111 @@ export default function WorkflowsPage() {
                     <Plus style={{ width: '1.25rem', height: '1.25rem' }} />
                     New Workflow
                 </button>
+            </div>
+
+            {/* Quick Start Templates */}
+            <div style={{ marginBottom: '3rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
+                    <Zap size={20} style={{ color: '#f59e0b' }} />
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'white' }}>Quick Start Templates</h2>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                    {WORKFLOW_TEMPLATES.map((template) => {
+                        const Icon = CATEGORY_ICONS[template.category] || Zap;
+                        return (
+                            <div
+                                key={template.id}
+                                style={{
+                                    padding: '1.5rem',
+                                    borderRadius: '1rem',
+                                    background: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-4px)';
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                    e.currentTarget.style.borderColor = '#6366f1';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                }}
+                            >
+                                <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '10px',
+                                    background: 'rgba(99, 102, 241, 0.15)',
+                                    color: '#818cf8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: '1rem'
+                                }}>
+                                    <Icon size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>{template.name}</h3>
+                                <p style={{ fontSize: '0.8125rem', color: '#9ca3af', lineHeight: '1.5', marginBottom: '1.5rem', flex: 1 }}>{template.description}</p>
+
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                                    <span style={{
+                                        fontSize: '10px',
+                                        fontWeight: 700,
+                                        color: '#6366f1',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        background: 'rgba(99, 102, 241, 0.1)',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px'
+                                    }}>
+                                        {template.category}
+                                    </span>
+                                    <button
+                                        onClick={() => handleUseTemplate(template)}
+                                        disabled={creatingTemplate === template.id}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: '#818cf8',
+                                            fontSize: '0.875rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        {creatingTemplate === template.id ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                            <>
+                                                Use Template
+                                                <span style={{ fontSize: '14px' }}>→</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
+                <History size={20} style={{ color: '#6366f1' }} />
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'white' }}>My Workflows</h2>
             </div>
 
             {/* Loading State */}

@@ -21,6 +21,12 @@ const envSchema = z.object({
 
     // JWT
     JWT_SECRET: z.string(),
+
+    // ComfyUI
+    COMFYUI_URL: z.string().default("http://127.0.0.1:8188"),
+
+    // API
+    API_URL: z.string().default("http://localhost:4000"),
 }).refine(
     (data) => data.SUPABASE_URL || data.NEXT_PUBLIC_SUPABASE_URL,
     { message: "Either SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is required" }
@@ -53,6 +59,9 @@ export const config = {
         secret: parsed.data.JWT_SECRET,
     },
 
+    COMFYUI_URL: parsed.data.COMFYUI_URL,
+    apiUrl: parsed.data.API_URL,
+
     // Credit costs for different operations
     creditCosts: {
         txt2img: 1,
@@ -67,9 +76,9 @@ export const config = {
     tierLimits: {
         free: {
             monthlyCredits: 100,
-            maxParallelJobs: 1,
-            maxResolution: 512,
-            maxSteps: 30,
+            maxParallelJobs: 2,
+            maxResolution: 1024,
+            maxSteps: 50,
         },
         standard: {
             monthlyCredits: 1000,

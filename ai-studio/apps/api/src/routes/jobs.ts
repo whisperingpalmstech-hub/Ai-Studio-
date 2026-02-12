@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { jobQueue } from "../queues/job-queue.js";
@@ -19,135 +19,147 @@ const txt2imgSchema = z.object({
     cfg_scale: z.number().min(1).max(30).optional().default(7),
     seed: z.number().optional().default(-1),
     sampler: z.string().optional().default("euler_a"),
-    model_id: z.string().uuid().optional(),
+    model_id: z.string().min(1).optional(),
     lora_ids: z.array(z.string().uuid()).optional().default([]),
     batch_size: z.number().min(1).max(4).optional().default(1),
     batch_count: z.number().min(1).max(4).optional().default(1),
 });
 
 const img2imgSchema = txt2imgSchema.extend({
-    image_url: z.string().url(),
+    image_url: z.string().min(1),
     denoising_strength: z.number().min(0).max(1).optional().default(0.75),
 });
 
 const inpaintSchema = img2imgSchema.extend({
-    mask_url: z.string().url(),
+    mask_url: z.string().min(1),
+});
+
+const workflowSchema = z.object({
+    workflow: z.record(z.any()),
+    prompt: z.string().optional(), // Metadata
 });
 
 // POST /api/v1/jobs - Create a new generation job
-router.post("/", async (req: AuthenticatedRequest, res: Response) => {
-    const user = req.user!;
-    const { type = "txt2img", ...params } = req.body;
-
-    // Validate job type
-    const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale"];
-    if (!validTypes.includes(type)) {
-        throw new BadRequestError(`Invalid job type: ${type}`);
-    }
-
-    // Validate params based on job type
-    let validatedParams;
+router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        switch (type) {
-            case "txt2img":
-                validatedParams = txt2imgSchema.parse(params);
-                break;
-            case "img2img":
-                validatedParams = img2imgSchema.parse(params);
-                break;
-            case "inpaint":
-            case "outpaint":
-                validatedParams = inpaintSchema.parse(params);
-                break;
-            default:
-                validatedParams = params;
+        const user = req.user!;
+        const { type = "txt2img", ...params } = req.body;
+
+        // Validate job type
+        const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale", "workflow"];
+        if (!validTypes.includes(type)) {
+            throw new BadRequestError(`Invalid job type: ${type}`);
         }
-    } catch (error) {
-        if (error instanceof z.ZodError) {
+
+        // Validate params based on job type
+        let validatedParams;
+        try {
+            switch (type) {
+                case "txt2img":
+                    validatedParams = txt2imgSchema.parse(params);
+                    break;
+                case "img2img":
+                    validatedParams = img2imgSchema.parse(params);
+                    break;
+                case "inpaint":
+                case "outpaint":
+                    validatedParams = inpaintSchema.parse(params);
+                    break;
+                case "workflow":
+                    validatedParams = workflowSchema.parse(params);
+                    break;
+                default:
+                    validatedParams = params;
+            }
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                throw new BadRequestError(
+                    `Validation error: ${error.errors.map((e) => e.message).join(", ")}`
+                );
+            }
+            throw error;
+        }
+
+        // Check tier limits
+        const tierLimits = config.tierLimits[user.tier as keyof typeof config.tierLimits];
+        if (validatedParams.width > tierLimits.maxResolution ||
+            validatedParams.height > tierLimits.maxResolution) {
             throw new BadRequestError(
-                `Validation error: ${error.errors.map((e) => e.message).join(", ")}`
+                `Resolution exceeds tier limit of ${tierLimits.maxResolution}px`
             );
         }
-        throw error;
-    }
-
-    // Check tier limits
-    const tierLimits = config.tierLimits[user.tier as keyof typeof config.tierLimits];
-    if (validatedParams.width > tierLimits.maxResolution ||
-        validatedParams.height > tierLimits.maxResolution) {
-        throw new BadRequestError(
-            `Resolution exceeds tier limit of ${tierLimits.maxResolution}px`
-        );
-    }
-    if (validatedParams.steps > tierLimits.maxSteps) {
-        throw new BadRequestError(
-            `Steps exceeds tier limit of ${tierLimits.maxSteps}`
-        );
-    }
-
-    // Calculate credit cost
-    const baseCost = config.creditCosts[type as keyof typeof config.creditCosts] || 1;
-    const batchMultiplier = (validatedParams.batch_size || 1) * (validatedParams.batch_count || 1);
-    const creditCost = baseCost * batchMultiplier;
-
-    // Check credits
-    if (user.credits < creditCost) {
-        throw new InsufficientCreditsError(creditCost, user.credits);
-    }
-
-    // Create job in database
-    const jobId = uuidv4();
-    const { data: job, error } = await supabaseAdmin
-        .from("jobs")
-        .insert({
-            id: jobId,
-            user_id: user.id,
-            type: type,
-            status: "pending",
-            priority: user.tier,
-            params: validatedParams,
-            credits_estimated: creditCost,
-        })
-        .select()
-        .single();
-
-    if (error) {
-        console.error("Failed to create job:", error);
-        throw new Error("Failed to create job");
-    }
-
-    // Add to job queue
-    await jobQueue.add(
-        type,
-        {
-            jobId: job.id,
-            userId: user.id,
-            type,
-            params: validatedParams,
-        },
-        {
-            priority: getPriorityNumber(user.tier),
-            attempts: 3,
-            backoff: {
-                type: "exponential",
-                delay: 1000,
-            },
+        if (validatedParams.steps > tierLimits.maxSteps) {
+            throw new BadRequestError(
+                `Steps exceeds tier limit of ${tierLimits.maxSteps}`
+            );
         }
-    );
 
-    // Update job status to queued
-    await supabaseAdmin
-        .from("jobs")
-        .update({ status: "queued", queued_at: new Date().toISOString() })
-        .eq("id", job.id);
+        // Calculate credit cost
+        const baseCost = config.creditCosts[type as keyof typeof config.creditCosts] || 1;
+        const batchMultiplier = (validatedParams.batch_size || 1) * (validatedParams.batch_count || 1);
+        const creditCost = baseCost * batchMultiplier;
 
-    res.status(201).json({
-        id: job.id,
-        type: job.type,
-        status: "queued",
-        credits_estimated: creditCost,
-        created_at: job.created_at,
-    });
+        // Check credits
+        if (user.credits < creditCost) {
+            throw new InsufficientCreditsError(creditCost, user.credits);
+        }
+
+        // Create job in database
+        const jobId = uuidv4();
+        const { data: job, error } = await (supabaseAdmin
+            .from("jobs")
+            .insert({
+                id: jobId,
+                user_id: user.id,
+                type: type as any,
+                status: "pending",
+                priority: user.tier as any,
+                params: validatedParams as any,
+                credits_estimated: creditCost,
+            } as any)
+            .select()
+            .single() as any);
+
+        if (error) {
+            console.error("Failed to create job:", error);
+            throw new Error("Failed to create job");
+        }
+
+        // Add to job queue
+        await jobQueue.add(
+            type,
+            {
+                jobId: job.id,
+                userId: user.id,
+                type,
+                params: validatedParams,
+            },
+            {
+                priority: getPriorityNumber(user.tier),
+                attempts: 3,
+                backoff: {
+                    type: "exponential",
+                    delay: 1000,
+                },
+            }
+        );
+
+        // Update job status to queued
+        await ((supabaseAdmin as any)
+            .from("jobs")
+            .update({ status: "queued", queued_at: new Date().toISOString() })
+            .eq("id", job.id));
+
+        res.status(201).json({
+            id: job.id,
+            type: job.type,
+            status: "queued",
+            credits_estimated: creditCost,
+            created_at: job.created_at,
+        });
+    } catch (err) {
+        next(err);
+    }
 });
 
 // GET /api/v1/jobs - List user's jobs
@@ -205,45 +217,78 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
         .eq("job_id", id);
 
     res.json({
-        ...job,
+        ...(job as any),
         assets: assets || [],
     });
 });
 
-// DELETE /api/v1/jobs/:id - Cancel a job
-router.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
-    const user = req.user!;
-    const { id } = req.params;
+// DELETE /api/v1/jobs/:id - Delete or Cancel a job
+router.delete("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user!;
+        const { id: jobId } = req.params;
 
-    const { data: job, error } = await supabaseAdmin
-        .from("jobs")
-        .select("*")
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .single();
+        const { data: job, error } = await supabaseAdmin
+            .from("jobs")
+            .select("*")
+            .eq("id", jobId)
+            .eq("user_id", user.id)
+            .single();
 
-    if (error || !job) {
-        throw new NotFoundError("Job not found");
+        if (error || !job) {
+            throw new NotFoundError("Job not found");
+        }
+
+        const status = (job as any).status;
+
+        // 1. If pending/queued, cancel it
+        if (status === "pending" || status === "queued") {
+            const queueJob = await jobQueue.getJob(jobId);
+            if (queueJob) {
+                await queueJob.remove();
+            }
+
+            await ((supabaseAdmin as any)
+                .from("jobs")
+                .update({ status: "cancelled" })
+                .eq("id", jobId));
+
+            return res.json({ message: "Job cancelled successfully" });
+        }
+
+        // 2. If completed/failed/cancelled, delete everything
+        // Get assets to delete from storage
+        const { data: assets } = await supabaseAdmin
+            .from("assets")
+            .select("file_path")
+            .eq("job_id", jobId);
+
+        if (assets && assets.length > 0) {
+            // Extract storage paths from URLs if necessary, or use the path structure
+            // In our current setup, we store public URLs or paths starting with /outputs
+            // The storage path is generations/${userId}/${jobId}/${filename}
+            const pathsToDelete = assets.map((a: any) => {
+                const url = a.file_path;
+                // If it's a full Supabase URL, we need to extract the path after 'assets/'
+                if (url.includes('/assets/')) {
+                    return url.split('/assets/')[1];
+                }
+                return url.replace('/outputs/', ''); // Fallback for old local paths
+            });
+
+            if (pathsToDelete.length > 0) {
+                await supabaseAdmin.storage.from("assets").remove(pathsToDelete);
+            }
+        }
+
+        // Delete from DB
+        await (supabaseAdmin as any).from("assets").delete().eq("job_id", jobId);
+        await (supabaseAdmin as any).from("jobs").delete().eq("id", jobId);
+
+        res.json({ message: "Job and associated assets deleted successfully" });
+    } catch (err) {
+        next(err);
     }
-
-    // Can only cancel pending or queued jobs
-    if (!["pending", "queued"].includes(job.status)) {
-        throw new BadRequestError(`Cannot cancel job with status: ${job.status}`);
-    }
-
-    // Remove from queue if present
-    const queueJob = await jobQueue.getJob(id);
-    if (queueJob) {
-        await queueJob.remove();
-    }
-
-    // Update job status
-    await supabaseAdmin
-        .from("jobs")
-        .update({ status: "cancelled" })
-        .eq("id", id);
-
-    res.json({ message: "Job cancelled successfully" });
 });
 
 // Helper function to map tier to priority number (lower = higher priority)

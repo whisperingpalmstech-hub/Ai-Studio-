@@ -6,16 +6,15 @@ import { Download, Trash2, Calendar, Sparkles, Search, Filter } from "lucide-rea
 
 interface Generation {
     id: string;
-    prompt: string;
-    negative_prompt: string;
-    image_url: string;
-    width: number;
-    height: number;
-    steps: number;
-    guidance_scale: number;
-    seed: number;
+    prompt: string | null;
+    negative_prompt: string | null;
+    file_path: string;
+    width: number | null;
+    height: number | null;
+    params: any;
+    seed: number | null;
     created_at: string;
-    status: string;
+    type: string;
 }
 
 export default function GalleryPage() {
@@ -34,10 +33,10 @@ export default function GalleryPage() {
 
         if (user) {
             const { data, error } = await supabase
-                .from("generations")
+                .from("assets")
                 .select("*")
                 .eq("user_id", user.id)
-                .eq("status", "completed")
+                .in("type", ["image", "video"])
                 .order("created_at", { ascending: false });
 
             if (data) {
@@ -51,7 +50,7 @@ export default function GalleryPage() {
         if (!confirm("Delete this generation?")) return;
 
         const supabase = getSupabaseClient();
-        await supabase.from("generations").delete().eq("id", id);
+        await supabase.from("assets").delete().eq("id", id);
         setGenerations(prev => prev.filter(g => g.id !== id));
         setSelectedImage(null);
     };
@@ -64,7 +63,7 @@ export default function GalleryPage() {
     };
 
     const filteredGenerations = generations.filter(gen =>
-        gen.prompt.toLowerCase().includes(searchQuery.toLowerCase())
+        (gen.prompt || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -172,32 +171,76 @@ export default function GalleryPage() {
                                 backgroundColor: 'rgba(255, 255, 255, 0.02)',
                                 overflow: 'hidden',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                position: 'relative'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.borderColor = '#6366f1';
                                 e.currentTarget.style.transform = 'translateY(-4px)';
+                                const btn = e.currentTarget.querySelector('.delete-btn') as HTMLElement;
+                                if (btn) btn.style.opacity = '1';
                             }}
                             onMouseLeave={(e) => {
                                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
                                 e.currentTarget.style.transform = 'translateY(0)';
+                                const btn = e.currentTarget.querySelector('.delete-btn') as HTMLElement;
+                                if (btn) btn.style.opacity = '0';
                             }}
                         >
                             <div style={{ position: 'relative', paddingTop: '100%', backgroundColor: '#1a1a2e' }}>
-                                <img
-                                    src={gen.image_url}
-                                    alt={gen.prompt}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover'
-                                    }}
-                                />
+                                {gen.type === 'video' ? (
+                                    <video
+                                        src={gen.file_path}
+                                        autoPlay
+                                        loop
+                                        muted
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                ) : (
+                                    <img
+                                        src={gen.file_path}
+                                        alt={gen.prompt || "Generated image"}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                )}
                             </div>
                             <div style={{ padding: '1rem' }}>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(gen.id);
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '0.5rem',
+                                        right: '0.5rem',
+                                        padding: '0.5rem',
+                                        borderRadius: '0.5rem',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                        color: '#ef4444',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        opacity: 0,
+                                        transition: 'opacity 0.2s',
+                                    }}
+                                    className="delete-btn"
+                                >
+                                    <Trash2 style={{ width: '1rem', height: '1rem' }} />
+                                </button>
                                 <p style={{
                                     fontSize: '0.875rem',
                                     color: 'white',
@@ -208,7 +251,7 @@ export default function GalleryPage() {
                                     WebkitLineClamp: 2,
                                     WebkitBoxOrient: 'vertical'
                                 }}>
-                                    {gen.prompt}
+                                    {gen.prompt || "No prompt available"}
                                 </p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#9ca3af' }}>
                                     <Calendar style={{ width: '0.875rem', height: '0.875rem' }} />
@@ -252,17 +295,31 @@ export default function GalleryPage() {
                             overflow: 'hidden'
                         }}
                     >
-                        {/* Image */}
+                        {/* Media Display */}
                         <div style={{ padding: '2rem' }}>
-                            <img
-                                src={selectedImage.image_url}
-                                alt={selectedImage.prompt}
-                                style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    borderRadius: '0.5rem'
-                                }}
-                            />
+                            {selectedImage.type === 'video' ? (
+                                <video
+                                    src={selectedImage.file_path}
+                                    controls
+                                    autoPlay
+                                    loop
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        borderRadius: '0.5rem'
+                                    }}
+                                />
+                            ) : (
+                                <img
+                                    src={selectedImage.file_path}
+                                    alt={selectedImage.prompt || "Generated image"}
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        borderRadius: '0.5rem'
+                                    }}
+                                />
+                            )}
                         </div>
 
                         {/* Details */}
@@ -276,7 +333,7 @@ export default function GalleryPage() {
                                     PROMPT
                                 </label>
                                 <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                    {selectedImage.prompt}
+                                    {selectedImage.prompt || "No prompt available"}
                                 </p>
                             </div>
 
@@ -301,13 +358,13 @@ export default function GalleryPage() {
                                 <div>
                                     <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>STEPS</label>
                                     <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.steps}
+                                        {selectedImage.params?.steps || selectedImage.params?.num_inference_steps || "N/A"}
                                     </p>
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>CFG SCALE</label>
                                     <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.guidance_scale}
+                                        {selectedImage.params?.guidance_scale || "N/A"}
                                     </p>
                                 </div>
                                 <div>
@@ -321,7 +378,7 @@ export default function GalleryPage() {
                             {/* Actions */}
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
-                                    onClick={() => handleDownload(selectedImage.image_url, selectedImage.id)}
+                                    onClick={() => handleDownload(selectedImage.file_path, selectedImage.id)}
                                     style={{
                                         flex: 1,
                                         display: 'flex',
@@ -364,7 +421,8 @@ export default function GalleryPage() {
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

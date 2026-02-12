@@ -24,10 +24,10 @@ export default async function DashboardPage() {
         { data: profile },
         { data: recentGenerations }
     ] = await Promise.all([
-        supabase.from('generations').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('assets').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('type', 'image'),
         supabase.from('workflows').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('profiles').select('credits').eq('id', user.id).single(),
-        supabase.from('generations').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(4)
+        supabase.from('assets').select('*').eq('user_id', user.id).eq('type', 'image').order('created_at', { ascending: false }).limit(4)
     ]);
 
     const credits = profile?.credits || 0;
@@ -335,8 +335,8 @@ export default async function DashboardPage() {
                                 }}>
                                     <div style={{ position: 'relative', paddingTop: '100%', backgroundColor: '#1a1a2e' }}>
                                         <img
-                                            src={gen.image_url}
-                                            alt={gen.prompt}
+                                            src={gen.file_path}
+                                            alt={gen.prompt || "Generated image"}
                                             style={{
                                                 position: 'absolute',
                                                 top: 0,
@@ -357,7 +357,7 @@ export default async function DashboardPage() {
                                             WebkitLineClamp: 1,
                                             WebkitBoxOrient: 'vertical'
                                         }}>
-                                            {gen.prompt}
+                                            {gen.prompt || "No prompt available"}
                                         </p>
                                         <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>
                                             {new Date(gen.created_at).toLocaleDateString()}

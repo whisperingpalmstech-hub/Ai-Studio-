@@ -1,0 +1,10 @@
+--2026-02-10 15:20:32--  https://huggingface.co/runwayml/stable-diffusion-inpainting/resolve/main/sd-v1-5-inpainting.safetensors
+Resolving huggingface.co (huggingface.co)... 3.174.141.51, 3.174.141.117, 3.174.141.63, ...
+Connecting to huggingface.co (huggingface.co)|3.174.141.51|:443... connected.
+HTTP request sent, awaiting response... 307 Temporary Redirect
+Location: /stable-diffusion-v1-5/stable-diffusion-inpainting/resolve/main/sd-v1-5-inpainting.safetensors [following]
+--2026-02-10 15:20:32--  https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-inpainting/resolve/main/sd-v1-5-inpainting.safetensors
+Reusing existing connection to huggingface.co:443.
+HTTP request sent, awaiting response... 404 Not Found
+2026-02-10 15:20:32 ERROR 404: Not Found.
+

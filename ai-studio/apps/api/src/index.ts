@@ -25,6 +25,9 @@ app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Static files
+app.use("/outputs", express.static("public"));
+
 // Health check (no auth required)
 app.use("/health", healthRouter);
 
@@ -44,9 +47,16 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 AI Studio API server running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
 });
+
+// Initialize WebSocket Services
+import { webSocketService } from "./services/websocket.js";
+import { comfyUIWebSocketService } from "./services/comfyui-ws.js";
+
+webSocketService.initialize(server);
+comfyUIWebSocketService.initialize();
 
 export default app;

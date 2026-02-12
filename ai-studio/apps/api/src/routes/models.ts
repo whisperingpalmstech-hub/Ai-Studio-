@@ -60,7 +60,8 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Check access
-    if (!model.is_public && !model.is_system && model.user_id !== user.id) {
+    const m = model as any;
+    if (!m.is_public && !m.is_system && m.user_id !== user.id) {
         throw new ForbiddenError("You don't have access to this model");
     }
 
@@ -85,14 +86,14 @@ router.post("/", async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
     const body = createModelSchema.parse(req.body);
 
-    const { data: model, error } = await supabaseAdmin
+    const { data: model, error } = await (supabaseAdmin
         .from("models")
         .insert({
             ...body,
             user_id: user.id,
-        })
+        } as any)
         .select()
-        .single();
+        .single() as any);
 
     if (error) {
         console.error("Failed to create model:", error);
@@ -123,16 +124,16 @@ router.put("/:id", async (req: AuthenticatedRequest, res: Response) => {
         .eq("id", id)
         .single();
 
-    if (!existing || existing.user_id !== user.id) {
+    if (!existing || (existing as any).user_id !== user.id) {
         throw new ForbiddenError("You can only update your own models");
     }
 
-    const { data: model, error } = await supabaseAdmin
+    const { data: model, error } = await ((supabaseAdmin as any)
         .from("models")
         .update(body)
         .eq("id", id)
         .select()
-        .single();
+        .single());
 
     if (error) {
         throw new Error("Failed to update model");
@@ -157,11 +158,12 @@ router.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
         throw new NotFoundError("Model not found");
     }
 
-    if (existing.is_system) {
+    const m = existing as any;
+    if (m.is_system) {
         throw new ForbiddenError("Cannot delete system models");
     }
 
-    if (existing.user_id !== user.id) {
+    if (m.user_id !== user.id) {
         throw new ForbiddenError("You can only delete your own models");
     }
 

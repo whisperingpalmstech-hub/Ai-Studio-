@@ -63,15 +63,17 @@ A modern, web-based AI Studio platform that democratizes AI-powered image and vi
 - Framer Motion
 
 **Backend:**
+- Node.js (Express) API
+- BullMQ & Redis for job queueing
 - Supabase (Auth, Database, Storage)
-- PostgreSQL (user data, generations)
-- Next.js API Routes
-- Hugging Face Inference API (AI generation)
+- PostgreSQL (user data, assets, workflows)
+- **ComfyUI API** (Local model inference)
 
 **Infrastructure:**
+- Local GPU Infrastructure (NVIDIA recommended)
 - Monorepo structure (Turborepo)
 - pnpm package manager
-- ESLint & Prettier
+- WebSocket for real-time updates
 
 ### Project Structure
 
@@ -120,29 +122,25 @@ ai-studio/
 - updated_at (timestamp)
 ```
 
-**generations**
+**assets**
 ```sql
 - id (uuid, PK)
-- user_id (uuid, FK -> profiles.id)
+- user_id (uuid, FK)
+- type (text: image|video)
 - prompt (text)
-- negative_prompt (text)
-- image_url (text)
-- width (integer)
-- height (integer)
-- steps (integer)
-- guidance_scale (float)
-- seed (integer)
-- status (text: pending|completed|failed)
+- file_path (text)
+- metadata (jsonb: width, height, steps, cfg, sampler)
 - created_at (timestamp)
 ```
 
-**workflows** (future)
+**workflows**
 ```sql
 - id (uuid, PK)
 - user_id (uuid, FK)
 - name (text)
 - description (text)
-- workflow_json (jsonb)
+- nodes (jsonb)
+- edges (jsonb)
 - created_at (timestamp)
 ```
 
@@ -166,18 +164,24 @@ pnpm install
 
 ### 2. Environment Variables
 
-Create `apps/web/.env.local`:
-
+Create `apps/api/.env`:
 ```bash
-# Supabase
+PORT=4000
+DATABASE_URL=your_postgres_url
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+REDIS_URL=redis://localhost:6379
+COMFYUI_URL=http://localhost:8188
+API_URL=http://localhost:4000
+JWT_SECRET=your_secret
+```
+
+Create `apps/web/.env.local`:
+```bash
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-
-# App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# AI Generation
-HUGGINGFACE_API_TOKEN=your_huggingface_token
+NEXT_PUBLIC_WS_URL=ws://localhost:4000
 ```
 
 ### 3. Database Setup
