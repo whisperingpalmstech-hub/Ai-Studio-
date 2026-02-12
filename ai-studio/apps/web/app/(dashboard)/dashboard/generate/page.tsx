@@ -23,6 +23,7 @@ import {
 
 import { getSupabaseClient } from "../../../../lib/supabase/client";
 import { useWebSocket } from "../../../../lib/useWebSocket";
+import { useJobRealtime } from "../../../../lib/useJobRealtime";
 
 const MODES = [
     { id: "txt2img", label: "Text to Image", icon: Sparkles },
@@ -71,51 +72,62 @@ export default function GeneratePage() {
 
     // WebSocket
     const { status: wsStatus, lastMessage } = useWebSocket();
+    const [userId, setUserId] = useState<string | null>(null);
+    const { lastUpdate: realtimeJobUpdate } = useJobRealtime(userId || undefined);
+
+    useEffect(() => {
+        if (realtimeJobUpdate && isGenerating) {
+            console.log("Realtime Job Update:", realtimeJobUpdate);
+
+            if (realtimeJobUpdate.progress !== undefined) {
+                setProgress(realtimeJobUpdate.progress);
+            }
+
+            if (realtimeJobUpdate.current_node) {
+                setStatusMessage(`Processing: ${realtimeJobUpdate.current_node} (${realtimeJobUpdate.progress}%)`);
+            }
+
+            if (realtimeJobUpdate.status === 'completed') {
+                // If we have outputs, handles it
+                if (realtimeJobUpdate.outputs && Array.isArray(realtimeJobUpdate.outputs) && realtimeJobUpdate.outputs.length > 0) {
+                    // Logic to fetch the actual asset URL if needed, or if it's already in the job update
+                    // In our schema, job.outputs is JSONB array of asset IDs or URLs
+                    // If it's IDs, we might need to fetch the asset.
+                    // But usually the job-queue updates 'completed' and sends a WS message with the URL.
+                    // For Realtime, we might need a small delay or trust that the assets table is also updated.
+
+                    const fetchAsset = async () => {
+                        const supabase = getSupabaseClient();
+                        const { data: asset } = await supabase
+                            .from('assets')
+                            .select('file_path')
+                            .eq('job_id', realtimeJobUpdate.id)
+                            .maybeSingle();
+
+                        if (asset?.file_path) {
+                            setGeneratedImage(asset.file_path);
+                            setIsGenerating(false);
+                            setProgress(100);
+                            setStatusMessage("Generation Complete!");
+                            setRefreshKey(prev => prev + 1);
+                        }
+                    };
+                    fetchAsset();
+                }
+            } else if (realtimeJobUpdate.status === 'failed') {
+                setIsGenerating(false);
+                setProgress(0);
+                alert(`Job Failed: ${realtimeJobUpdate.error_message || 'Unknown error'}`);
+            }
+        }
+    }, [realtimeJobUpdate, isGenerating]);
 
     useEffect(() => {
         if (lastMessage) {
             console.log("WS Message:", lastMessage);
-            if (lastMessage.type === 'job_progress') {
-                if (lastMessage.progress !== undefined) {
-                    setProgress(lastMessage.progress);
-                }
-                if (lastMessage.message) {
-                    setStatusMessage(lastMessage.message);
-                }
-            } else if (lastMessage.type === 'job_completed' || lastMessage.type === 'job_complete') {
-                // Backend sends specific structure: { images: string[], asset: any }
-                // Also support legacy format if any
-                const imageUrl = lastMessage.images?.[0] || lastMessage.asset?.file_path || lastMessage.result?.file_path;
-
-                if (imageUrl) {
-                    setGeneratedImage(imageUrl);
-                    setIsGenerating(false);
-                    setProgress(100);
-                    setStatusMessage("Generation Complete!");
-                    setRefreshKey(prev => prev + 1); // Trigger refresh
-                }
-            } else if (lastMessage.type === 'job_failed') {
-                setIsGenerating(false);
-                setProgress(0);
-                alert(`Job Failed: ${lastMessage.error}`);
-            }
+            // Handle WS messages if any (optional now)
         }
     }, [lastMessage]);
-
-    // Polling fallback
-    useEffect(() => {
-        if (!isGenerating) return;
-
-        const interval = setInterval(async () => {
-            // Only poll if we don't have active WS updates for a while? 
-            // For now, just poll casually to check for completion if WS missed it.
-            // But we don't have the Job ID in state easily exposed here without refactoring.
-            // So skipping detailed polling implementation for now to avoid large refactors.
-            // The WS fix should be sufficient.
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, [isGenerating]);
 
     // Image Upload State
     const [inputImage, setInputImage] = useState<string | null>(null);
@@ -139,7 +151,6 @@ export default function GeneratePage() {
 
             if (data) {
                 setAvailableModels(data);
-                // Set default to SDXL if available, otherwise SD 1.5
                 const sdxl = data.find(m => m.base_model === 'sdxl');
                 const sd15 = data.find(m => m.base_model === 'sd15');
                 setSelectedModel(sdxl || sd15 || data[0]);
@@ -148,23 +159,23 @@ export default function GeneratePage() {
         fetchModels();
     }, []);
 
-    // Handle mode changes (auto-adjust settings)
+    // Handle mode changes
     useEffect(() => {
         if (mode === "txt2img" || mode === "img2img") {
-            // Revert back to SD model if we were on a custom one
             const sdxl = availableModels.find(m => m.base_model === 'sdxl');
             const sd15 = availableModels.find(m => m.base_model === 'sd15');
             setSelectedModel(sdxl || sd15 || availableModels[0]);
         }
     }, [mode, availableModels]);
 
-    // Fetch user credits on page load
+    // Fetch user credits and ID
     useEffect(() => {
         const fetchCredits = async () => {
             const supabase = getSupabaseClient();
             const { data: { user } } = await supabase.auth.getUser();
 
             if (user) {
+                setUserId(user.id);
                 const { data: profile } = await supabase
                     .from("profiles")
                     .select("credits")
@@ -176,7 +187,6 @@ export default function GeneratePage() {
                 }
             }
         };
-
         fetchCredits();
     }, []);
 
@@ -240,17 +250,13 @@ export default function GeneratePage() {
                 setGeneratedImage(data.images[0]);
                 setIsGenerating(false);
             } else if (data.status === "queued" || data.jobId) {
-                // If queued, we rely on WebSocket for the rest of the updates
                 setStatusMessage("Job submitted to queue...");
-                setGeneratedImage(null); // Clear previous image
+                setGeneratedImage(null);
                 setProgress(0);
-                // Note: Keep isGenerating(true)
             } else {
-                // Should not happen if queued
                 throw new Error("No image returned from API");
             }
 
-            // Update credits count
             if (data.credits !== undefined) {
                 setCredits(data.credits);
             }
@@ -260,7 +266,7 @@ export default function GeneratePage() {
             alert("Error: " + (error.message || "Something went wrong"));
             setIsGenerating(false);
         }
-    }
+    };
     const handleDownload = async () => {
         if (!generatedImage) return;
         try {

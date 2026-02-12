@@ -2,6 +2,7 @@
 import { WebSocket } from "ws";
 import { webSocketService } from "./websocket.js";
 import { config } from "../config/index.js";
+import { supabaseAdmin } from "./supabase.js";
 
 interface ProgressMessage {
     prompt_id: string;
@@ -72,7 +73,7 @@ class ComfyUIWebSocketService {
         this.activePrompts.delete(promptId);
     }
 
-    private handleMessage(message: any) {
+    private async handleMessage(message: any) {
         const { type, data } = message;
 
         if (type === "progress") {
@@ -80,21 +81,35 @@ class ComfyUIWebSocketService {
             const promptInfo = this.activePrompts.get(prompt_id);
             if (promptInfo) {
                 const percent = Math.round((value / max) * 100);
+
+                // 1. Send via WebSocket (legacy/local)
                 webSocketService.sendToUser(promptInfo.userId, {
                     type: "job_progress",
                     jobId: promptInfo.jobId,
                     progress: percent,
-                    nodeId: node, // Include nodeId for progress
+                    nodeId: node,
                     message: `Sampling... (${percent}%)`
                 });
+
+                // 2. Update Supabase for Realtime (production/Vercel)
+                try {
+                    await (supabaseAdmin
+                        .from("jobs") as any)
+                        .update({
+                            progress: percent,
+                            current_node: node,
+                            // Optionally update current_step if value is step count
+                        })
+                        .eq("id", promptInfo.jobId);
+                } catch (err) {
+                    console.error("Failed to update job progress in Supabase:", err);
+                }
             }
         } else if (type === "executing") {
             const { node, prompt_id } = data as ExecutingMessage;
             const promptInfo = this.activePrompts.get(prompt_id);
             if (promptInfo) {
-                if (node === null) {
-                    // Execution finished for this prompt
-                } else {
+                if (node !== null) {
                     // Reset progress for new node
                     webSocketService.sendToUser(promptInfo.userId, {
                         type: "job_progress",
@@ -102,6 +117,19 @@ class ComfyUIWebSocketService {
                         progress: 0,
                         message: `Starting Node: ${node}`
                     });
+
+                    try {
+                        await (supabaseAdmin
+                            .from("jobs") as any)
+                            .update({
+                                progress: 0,
+                                current_node: node,
+                                status: "processing"
+                            })
+                            .eq("id", promptInfo.jobId);
+                    } catch (err) {
+                        console.error("Failed to update job node in Supabase:", err);
+                    }
                 }
             }
         } else if (type === "status") {

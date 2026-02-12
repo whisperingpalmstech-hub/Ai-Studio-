@@ -23,6 +23,7 @@ import {
 
 import { getSupabaseClient } from "../../../../lib/supabase/client";
 import { useWebSocket } from "../../../../lib/useWebSocket";
+import { useJobRealtime } from "../../../../lib/useJobRealtime";
 
 const MODES = [
     { id: "t2v", label: "Text to Video", icon: Video },
@@ -69,31 +70,51 @@ export default function GenerateVideoPage() {
 
     // WebSocket
     const { status: wsStatus, lastMessage } = useWebSocket();
+    const [userId, setUserId] = useState<string | null>(null);
+    const { lastUpdate: realtimeJobUpdate } = useJobRealtime(userId || undefined);
+
+    useEffect(() => {
+        if (realtimeJobUpdate && isGenerating) {
+            console.log("Realtime Video Job Update:", realtimeJobUpdate);
+
+            if (realtimeJobUpdate.progress !== undefined) {
+                setProgress(realtimeJobUpdate.progress);
+            }
+
+            if (realtimeJobUpdate.current_node) {
+                setStatusMessage(`Rendering: ${realtimeJobUpdate.current_node} (${realtimeJobUpdate.progress}%)`);
+            }
+
+            if (realtimeJobUpdate.status === 'completed') {
+                const fetchAsset = async () => {
+                    const supabase = getSupabaseClient();
+                    const { data: asset } = await supabase
+                        .from('assets')
+                        .select('file_path')
+                        .eq('job_id', realtimeJobUpdate.id)
+                        .maybeSingle();
+
+                    if (asset?.file_path) {
+                        setGeneratedImage(asset.file_path);
+                        setIsGenerating(false);
+                        setProgress(100);
+                        setStatusMessage("Production Complete!");
+                        setRefreshKey(prev => prev + 1);
+                    }
+                };
+                fetchAsset();
+            } else if (realtimeJobUpdate.status === 'failed') {
+                setIsGenerating(false);
+                setProgress(0);
+                alert(`Production Failed: ${realtimeJobUpdate.error_message || 'Unknown error'}`);
+            }
+        }
+    }, [realtimeJobUpdate, isGenerating]);
 
     useEffect(() => {
         if (lastMessage) {
             console.log("WS Message:", lastMessage);
-            if (lastMessage.type === 'job_progress') {
-                if (lastMessage.progress !== undefined) {
-                    setProgress(lastMessage.progress);
-                }
-                if (lastMessage.message) {
-                    setStatusMessage(lastMessage.message);
-                }
-            } else if (lastMessage.type === 'job_complete' || lastMessage.type === 'job_completed') {
-                const result = lastMessage.result || lastMessage.asset;
-                if (result && result.file_path) {
-                    setGeneratedImage(result.file_path);
-                    setIsGenerating(false);
-                    setProgress(100);
-                    setStatusMessage("Generation Complete!");
-                    setRefreshKey(prev => prev + 1); // Trigger refresh
-                }
-            } else if (lastMessage.type === 'job_failed') {
-                setIsGenerating(false);
-                setProgress(0);
-                alert(`Job Failed: ${lastMessage.error}`);
-            }
+            // WS handle logic (optional now)
         }
     }, [lastMessage]);
 
@@ -136,6 +157,7 @@ export default function GenerateVideoPage() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (user) {
+                setUserId(user.id);
                 const { data: profile } = await supabase
                     .from("profiles")
                     .select("credits")
