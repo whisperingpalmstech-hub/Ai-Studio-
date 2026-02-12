@@ -71,90 +71,120 @@ export default function GeneratePage() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [currentJobId, setCurrentJobId] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
-    // Polling fallback
+
+    // Persist prompt and basic settings to localStorage
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        const savedPrompt = localStorage.getItem("last_prompt");
+        if (savedPrompt) setPrompt(savedPrompt);
+        const savedNegPrompt = localStorage.getItem("last_neg_prompt");
+        if (savedNegPrompt) setNegativePrompt(savedNegPrompt);
 
-        const poll = async () => {
-            if (!isGenerating) return;
+        const savedAspect = localStorage.getItem("last_aspect");
+        if (savedAspect) {
+            try {
+                const aspect = JSON.parse(savedAspect);
+                setSelectedAspect(aspect);
+            } catch (e) { }
+        }
+    }, []);
 
+    useEffect(() => {
+        if (prompt) localStorage.setItem("last_prompt", prompt);
+    }, [prompt]);
+
+    useEffect(() => {
+        if (negativePrompt) localStorage.setItem("last_neg_prompt", negativePrompt);
+    }, [negativePrompt]);
+
+    useEffect(() => {
+        if (selectedAspect) localStorage.setItem("last_aspect", JSON.stringify(selectedAspect));
+    }, [selectedAspect]);
+
+    // Independent Recovery Logic: Run once on mount/user change
+    useEffect(() => {
+        if (!userId) return;
+
+        const recoverJob = async () => {
             const supabase = getSupabaseClient();
-            let targetId = currentJobId;
+            console.log("🔍 Checking for active jobs to recover...");
+            const { data: latestJob } = await (supabase
+                .from('jobs') as any)
+                .select('*')
+                .eq('user_id', userId)
+                .in('status', ['pending', 'processing', 'queued'])
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-            // Recovery logic: if we are supposed to be generating but lost the Job ID, find the latest active one
-            if (!targetId && userId) {
-                console.log("🔍 Recovering active job for user:", userId);
-                const { data: latestJob } = await (supabase
-                    .from('jobs') as any)
-                    .select('id')
-                    .eq('user_id', userId)
-                    .in('status', ['pending', 'processing', 'queued'])
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                if (latestJob) {
-                    console.log("✅ Recovered Job ID:", latestJob.id);
-                    setCurrentJobId(latestJob.id);
-                    targetId = latestJob.id;
-                } else {
-                    // No active job found, stop generating state
-                    console.log("❌ No active job found. Stopping generation state.");
-                    setIsGenerating(false);
-                    return;
-                }
-            }
-
-            if (targetId) {
-                const { data: job, error } = await (supabase
-                    .from('jobs') as any)
-                    .select('*')
-                    .eq('id', targetId)
-                    .single();
-
-                if (error) {
-                    console.error("❌ Polling Query Error:", error.message);
-                    return;
-                }
-
-                if (job) {
-                    const update = job as any;
-                    console.log(`📥 [${update.status}] Progress: ${update.progress}% | Node: ${update.current_node}`);
-
-                    // Use a functional update to avoid dependency on 'progress' value
-                    setProgress(prev => {
-                        if (update.progress !== undefined && update.progress > prev) return update.progress;
-                        return prev;
-                    });
-
-                    if (update.current_node) {
-                        setStatusMessage(`Node: ${update.current_node} (${update.progress}%)`);
-                    } else if (update.status === 'processing') {
-                        setStatusMessage(`Generating... (${update.progress}%)`);
-                    } else {
-                        setStatusMessage(update.status.charAt(0).toUpperCase() + update.status.slice(1) + "...");
-                    }
-
-                    if (update.status === 'completed') {
-                        const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
-                        if (firstOutput && typeof firstOutput === 'string' && (firstOutput.startsWith('http') || firstOutput.startsWith('/'))) {
-                            setGeneratedImage(firstOutput);
-                            setIsGenerating(false);
-                            setProgress(100);
-                            setStatusMessage("Generation Complete!");
-                            setCurrentJobId(null);
-                        }
-                    } else if (update.status === 'failed') {
-                        setIsGenerating(false);
-                        setCurrentJobId(null);
-                        alert(`Generation Failed: ${update.error_message || 'Internal error'}`);
-                    }
+            if (latestJob) {
+                console.log("✅ Recovered active job:", latestJob.id);
+                setCurrentJobId(latestJob.id);
+                setIsGenerating(true);
+                // Pre-fill prompt if it's empty
+                if (!prompt && latestJob.params?.prompt) {
+                    setPrompt(latestJob.params.prompt);
                 }
             }
         };
 
-        if (isGenerating) {
-            console.log("🚀 Polling started for Job:", currentJobId || "RECOVERY_MODE");
+        recoverJob();
+    }, [userId]);
+
+    // Polling fallback - Simplified since recovery moved up
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+
+        const poll = async () => {
+            if (!isGenerating || !currentJobId) return;
+
+            const supabase = getSupabaseClient();
+            const { data: job, error } = await (supabase
+                .from('jobs') as any)
+                .select('*')
+                .eq('id', currentJobId)
+                .single();
+
+            if (error) {
+                console.error("❌ Polling Query Error:", error.message);
+                return;
+            }
+
+            if (job) {
+                const update = job as any;
+                console.log(`📥 [${update.status}] Progress: ${update.progress}% | Node: ${update.current_node}`);
+
+                setProgress(prev => {
+                    if (update.progress !== undefined && update.progress > prev) return update.progress;
+                    return prev;
+                });
+
+                if (update.current_node) {
+                    setStatusMessage(`Node: ${update.current_node} (${update.progress}%)`);
+                } else if (update.status === 'processing') {
+                    setStatusMessage(`Generating... (${update.progress}%)`);
+                } else {
+                    setStatusMessage(update.status.charAt(0).toUpperCase() + update.status.slice(1) + "...");
+                }
+
+                if (update.status === 'completed') {
+                    const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
+                    if (firstOutput && typeof firstOutput === 'string' && (firstOutput.startsWith('http') || firstOutput.startsWith('/'))) {
+                        setGeneratedImage(firstOutput);
+                        setIsGenerating(false);
+                        setProgress(100);
+                        setStatusMessage("Generation Complete!");
+                        setCurrentJobId(null);
+                    }
+                } else if (update.status === 'failed') {
+                    setIsGenerating(false);
+                    setCurrentJobId(null);
+                    alert(`Generation Failed: ${update.error_message || 'Internal error'}`);
+                }
+            }
+        };
+
+        if (isGenerating && currentJobId) {
+            console.log("🚀 Polling started for Job:", currentJobId);
             // Run once immediately
             poll();
             interval = setInterval(poll, 1500);
@@ -166,7 +196,7 @@ export default function GeneratePage() {
                 clearInterval(interval);
             }
         };
-    }, [isGenerating, currentJobId, userId]);
+    }, [isGenerating, currentJobId]);
 
     // WebSocket
     const { status: wsStatus, lastMessage } = useWebSocket();

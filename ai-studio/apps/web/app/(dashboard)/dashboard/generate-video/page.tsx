@@ -70,74 +70,103 @@ export default function GenerateVideoPage() {
     const [currentJobId, setCurrentJobId] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
 
+    // Persist prompt and settings to localStorage
+    useEffect(() => {
+        const savedPrompt = localStorage.getItem("last_video_prompt");
+        if (savedPrompt) setPrompt(savedPrompt);
+
+        const savedAspect = localStorage.getItem("last_video_aspect");
+        if (savedAspect) {
+            try {
+                const aspect = JSON.parse(savedAspect);
+                setSelectedAspect(aspect);
+            } catch (e) { }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (prompt) localStorage.setItem("last_video_prompt", prompt);
+    }, [prompt]);
+
+    useEffect(() => {
+        if (selectedAspect) localStorage.setItem("last_video_aspect", JSON.stringify(selectedAspect));
+    }, [selectedAspect]);
+
+    // Independent Recovery Logic: Run once on mount/user change
+    useEffect(() => {
+        if (!userId) return;
+
+        const recoverJob = async () => {
+            const supabase = getSupabaseClient();
+            console.log("🔍 Checking for active video jobs to recover...");
+            const { data: latestJob } = await (supabase
+                .from('jobs') as any)
+                .select('*')
+                .eq('user_id', userId)
+                .in('status', ['pending', 'processing', 'queued'])
+                .in('type', ['t2v', 'i2v']) // Only video jobs
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (latestJob) {
+                console.log("✅ Recovered active video job:", latestJob.id);
+                setCurrentJobId(latestJob.id);
+                setIsGenerating(true);
+                // Pre-fill prompt if it's empty
+                if (!prompt && latestJob.params?.prompt) {
+                    setPrompt(latestJob.params.prompt);
+                }
+            }
+        };
+
+        recoverJob();
+    }, [userId]);
+
     // Polling fallback
     useEffect(() => {
         let interval: NodeJS.Timeout;
 
         const poll = async () => {
-            if (!isGenerating) return;
+            if (!isGenerating || !currentJobId) return;
 
             const supabase = getSupabaseClient();
-            let targetId = currentJobId;
+            const { data: job, error } = await (supabase
+                .from('jobs') as any)
+                .select('*')
+                .eq('id', currentJobId)
+                .single();
 
-            // Recovery logic
-            if (!targetId && userId) {
-                const { data: latestJob } = await (supabase
-                    .from('jobs') as any)
-                    .select('id')
-                    .eq('user_id', userId)
-                    .in('status', ['pending', 'processing', 'queued'])
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+            if (job) {
+                const update = job as any;
 
-                if (latestJob) {
-                    setCurrentJobId(latestJob.id);
-                    targetId = latestJob.id;
-                } else {
-                    setIsGenerating(false);
-                    return;
+                setProgress(prev => {
+                    if (update.progress !== undefined && update.progress > prev) return update.progress;
+                    return prev;
+                });
+
+                if (update.current_node) {
+                    setStatusMessage(`Process: ${update.current_node} (${update.progress}%)`);
                 }
-            }
 
-            if (targetId) {
-                const { data: job, error } = await (supabase
-                    .from('jobs') as any)
-                    .select('*')
-                    .eq('id', targetId)
-                    .single();
-
-                if (job) {
-                    const update = job as any;
-
-                    setProgress(prev => {
-                        if (update.progress !== undefined && update.progress > prev) return update.progress;
-                        return prev;
-                    });
-
-                    if (update.current_node) {
-                        setStatusMessage(`Process: ${update.current_node} (${update.progress}%)`);
-                    }
-
-                    if (update.status === 'completed') {
-                        const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
-                        if (firstOutput) {
-                            setGeneratedImage(firstOutput);
-                            setIsGenerating(false);
-                            setProgress(100);
-                            setStatusMessage("Video Rendering Complete!");
-                            setCurrentJobId(null);
-                        }
-                    } else if (update.status === 'failed') {
+                if (update.status === 'completed') {
+                    const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
+                    if (firstOutput) {
+                        setGeneratedImage(firstOutput);
                         setIsGenerating(false);
+                        setProgress(100);
+                        setStatusMessage("Video Rendering Complete!");
                         setCurrentJobId(null);
-                        alert(`Video Generation Failed: ${update.error_message || 'Internal error'}`);
                     }
+                } else if (update.status === 'failed') {
+                    setIsGenerating(false);
+                    setCurrentJobId(null);
+                    alert(`Video Generation Failed: ${update.error_message || 'Internal error'}`);
                 }
             }
         };
 
-        if (isGenerating) {
+        if (isGenerating && currentJobId) {
             poll();
             interval = setInterval(poll, 2000);
         }
@@ -145,7 +174,7 @@ export default function GenerateVideoPage() {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [isGenerating, currentJobId, userId]);
+    }, [isGenerating, currentJobId]);
 
     // WebSocket
     const { status: wsStatus, lastMessage } = useWebSocket();
