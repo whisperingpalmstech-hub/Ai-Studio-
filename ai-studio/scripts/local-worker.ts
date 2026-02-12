@@ -397,37 +397,46 @@ async function processJob(job: any) {
         const assetUrls: string[] = [];
         for (const nodeId of Object.keys(outputs)) {
             const nodeOutput = outputs[nodeId];
-            if (nodeOutput.images) {
-                for (const img of nodeOutput.images) {
-                    const imgRes = await axios.get(`${COMFYUI_URL}/view`, {
-                        params: { filename: img.filename, subfolder: img.subfolder, type: img.type },
-                        responseType: 'arraybuffer'
+
+            // ComfyUI returns videos under 'gifs' or 'images' depending on the node
+            const outputFiles = nodeOutput.images || nodeOutput.gifs || nodeOutput.videos || [];
+
+            for (const file of outputFiles) {
+                const isVideo = file.filename.endsWith('.mp4') || file.filename.endsWith('.webm') || file.filename.endsWith('.gif');
+                const contentType = isVideo ?
+                    (file.filename.endsWith('.mp4') ? 'video/mp4' : (file.filename.endsWith('.webm') ? 'video/webm' : 'image/gif'))
+                    : 'image/png';
+
+                console.log(`📥 Fetching output: ${file.filename} (${contentType})`);
+
+                const fileRes = await axios.get(`${COMFYUI_URL}/view`, {
+                    params: { filename: file.filename, subfolder: file.subfolder, type: file.type },
+                    responseType: 'arraybuffer'
+                });
+
+                const buffer = Buffer.from(fileRes.data);
+                const storagePath = `generations/${job.user_id}/${job.id}/${file.filename}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('assets')
+                    .upload(storagePath, buffer, { contentType, upsert: true });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(storagePath);
+                assetUrls.push(publicUrl);
+
+                // Create Asset record
+                await supabase
+                    .from('assets')
+                    .insert({
+                        user_id: job.user_id,
+                        job_id: job.id,
+                        type: isVideo ? 'video' : 'image',
+                        file_path: publicUrl,
+                        prompt: job.params.prompt,
+                        created_at: new Date().toISOString()
                     });
-
-                    const buffer = Buffer.from(imgRes.data);
-                    const storagePath = `generations/${job.user_id}/${job.id}/${img.filename}`;
-
-                    const { error: uploadError } = await supabase.storage
-                        .from('assets')
-                        .upload(storagePath, buffer, { contentType: 'image/png', upsert: true });
-
-                    if (uploadError) throw uploadError;
-
-                    const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(storagePath);
-                    assetUrls.push(publicUrl);
-
-                    // Create Asset record
-                    await supabase
-                        .from('assets')
-                        .insert({
-                            user_id: job.user_id,
-                            job_id: job.id,
-                            type: 'image',
-                            file_path: publicUrl,
-                            prompt: job.params.prompt,
-                            created_at: new Date().toISOString()
-                        });
-                }
             }
         }
 
