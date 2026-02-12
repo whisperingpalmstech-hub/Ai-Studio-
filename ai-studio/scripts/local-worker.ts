@@ -235,8 +235,11 @@ const generateSimpleWorkflow = (params: any) => {
                 filename_prefix: "AiStudio_Video",
                 format: "video/h264-mp4",
                 pix_fmt: "yuv420p",
-                crf: 19,
-                save_output: true
+                crf: 20,
+                save_output: true,
+                pingpong: false,
+                save_metadata: true,
+                trim_to_audio: false
             }
         };
 
