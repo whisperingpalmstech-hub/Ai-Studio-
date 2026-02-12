@@ -116,37 +116,66 @@ async function processJob(job: any) {
         // 3. Send to ComfyUI
         const clientId = "local-worker-" + Math.random().toString(36).substring(7);
 
-        // Setup WebSocket for progress
-        const wsUrl = COMFYUI_URL.replace(/^http/, 'ws') + `/ws?clientId=${clientId}`;
+        // Setup WebSocket for progress with more debugging
+        const wsUrl = `${COMFYUI_URL.replace(/^http/, 'ws')}/ws?clientId=${clientId}`;
+        console.log(`🔌 Connecting to ComfyUI WS: ${wsUrl}`);
         const ws = new WebSocket(wsUrl);
 
-        ws.on('open', () => console.log(`🔌 WS connected to ComfyUI for job ${job.id}`));
-        ws.on('error', (err) => console.error(`🔌 WS Error:`, err));
+        let wsConnected = false;
+        const wsPromise = new Promise((resolve) => {
+            ws.on('open', () => {
+                console.log(`✅ WS connected to ComfyUI for job ${job.id}`);
+                wsConnected = true;
+                resolve(true);
+            });
+            ws.on('error', (err) => {
+                console.error(`❌ WS Error for job ${job.id}:`, err.message);
+                resolve(false);
+            });
+            // Timeout after 5s
+            setTimeout(() => {
+                if (!wsConnected) {
+                    console.warn(`🕒 WS connection timeout (5s) for job ${job.id}`);
+                    resolve(false);
+                }
+            }, 5000);
+        });
 
         ws.on('message', async (data: any) => {
             try {
-                const message = JSON.parse(data.toString());
-                // Log progress/executing for debugging
+                // Buffer to string handling
+                const dataString = data.toString();
+                const message = JSON.parse(dataString);
+
                 if (message.type === 'progress') {
                     const progress = Math.round((message.data.value / message.data.max) * 100);
                     console.log(`⏳ Job ${job.id} progress: ${progress}%`);
-                    await supabase.from('jobs').update({
+                    const { error: upError } = await supabase.from('jobs').update({
                         progress,
                         current_node: 'KSampler'
                     }).eq('id', job.id);
+                    if (upError) console.error("❌ Supabase Update Error (Progress):", upError.message);
                 } else if (message.type === 'executing' && message.data.node) {
                     console.log(`🎯 Executing node: ${message.data.node}`);
-                    await supabase.from('jobs').update({
+                    const { error: upError } = await supabase.from('jobs').update({
                         current_node: message.data.node
                     }).eq('id', job.id);
+                    if (upError) console.error("❌ Supabase Update Error (Node):", upError.message);
                 }
             } catch (e) {
                 // Ignore parse errors
             }
         });
 
+        // Wait for WS to be ready (up to 5s)
+        const ready = await wsPromise;
+        if (!ready) {
+            console.error("❌ WebSocket failed to connect. Falling back to polling only.");
+        }
+
         let promptId;
         try {
+            console.log(`📤 Submitting prompt to ComfyUI...`);
             const response = await axios.post(`${COMFYUI_URL}/prompt`, {
                 prompt: workflow,
                 client_id: clientId
