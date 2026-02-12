@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { toast } = useToast();
@@ -328,5 +329,13 @@ export default function LoginPage() {
                 </Link>
             </p>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <LoginContent />
+        </Suspense>
     );
 }

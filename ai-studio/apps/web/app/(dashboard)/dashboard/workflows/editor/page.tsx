@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ReactFlow, {
     addEdge,
@@ -766,7 +766,9 @@ function WorkflowEditorContent() {
 export default function WorkflowEditor() {
     return (
         <ReactFlowProvider>
-            <WorkflowEditorContent />
+            <Suspense fallback={<div>Loading Editor...</div>}>
+                <WorkflowEditorContent />
+            </Suspense>
         </ReactFlowProvider>
     );
 }
