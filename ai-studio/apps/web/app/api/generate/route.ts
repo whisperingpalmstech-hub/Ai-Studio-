@@ -23,7 +23,7 @@ export async function POST(request: Request) {
             width = 1024,
             height = 1024,
             seed = -1,
-            sampler = "Euler a",
+            sampler = "euler_a",
             model_id,
             video_frames = 81,
             fps = 16,
