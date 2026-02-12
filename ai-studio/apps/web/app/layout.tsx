@@ -54,7 +54,14 @@ export const metadata: Metadata = {
         follow: true,
     },
     manifest: "/manifest.json",
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+    metadataBase: (() => {
+        const url = process.env.NEXT_PUBLIC_APP_URL;
+        try {
+            return url ? new URL(url) : new URL("http://localhost:3000");
+        } catch (e) {
+            return new URL("http://localhost:3000");
+        }
+    })(),
 };
 
 export const viewport = {
