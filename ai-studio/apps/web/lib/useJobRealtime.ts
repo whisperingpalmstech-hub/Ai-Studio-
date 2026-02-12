@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from './supabase/client';
-import { Database } from '@ai-studio/database';
+import { Database } from "../../../packages/database/types";
 
 type Job = Database['public']['Tables']['jobs']['Row'];
 
