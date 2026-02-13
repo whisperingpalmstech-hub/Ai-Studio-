@@ -247,6 +247,9 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 if (sourceHandle === "positive") outputIndex = 0;
                 else if (sourceHandle === "negative") outputIndex = 1;
                 else outputIndex = 2;
+            } else if (sourceNode?.type === "loadImage") {
+                if (sourceHandle === "mask") outputIndex = 1;
+                else outputIndex = 0;
             }
             // Add other index mappings as needed, but default 0 works for most
 

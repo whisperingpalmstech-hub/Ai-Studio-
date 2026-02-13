@@ -505,9 +505,15 @@ export const LoadImageNode = memo(({ id, data }: any) => {
         ctx.lineCap = 'round';
         ctx.lineWidth = brushSize;
 
-        ctx.globalCompositeOperation = brushColor === 'black' ? 'destination-out' : 'source-over';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        if (brushColor === 'black') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)'; // Full erase
+            ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
+        } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)'; // Indigo visual mask
+            ctx.fillStyle = 'rgba(99, 102, 241, 0.5)';
+        }
 
         mctx.lineJoin = 'round';
         mctx.lineCap = 'round';
