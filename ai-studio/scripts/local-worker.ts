@@ -61,6 +61,182 @@ async function uploadImageToComfy(dataUrl: string, filename: string) {
 }
 
 // Import the workflow generator logic (Simplified for the script)
+
+// === ReactFlow to ComfyUI Converter (Enterprise Grade) ===
+interface ReactFlowNode {
+    id: string;
+    type: string;
+    data: any;
+}
+
+interface ReactFlowEdge {
+    source: string;
+    target: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+}
+
+interface ComfyINode {
+    class_type: string;
+    inputs: Record<string, any>;
+}
+
+function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[]): Record<string, ComfyINode> {
+    const comfyWorkflow: Record<string, ComfyINode> = {};
+
+    nodes.forEach(node => {
+        let class_type = "";
+        let inputs: Record<string, any> = {};
+
+        switch (node.type) {
+            case "loadModel":
+                class_type = "CheckpointLoaderSimple";
+                inputs["ckpt_name"] = node.data.model || "sd_xl_base_1.0.safetensors";
+                break;
+            case "prompt":
+                class_type = "CLIPTextEncode";
+                inputs["text"] = node.data.prompt || "";
+                break;
+            case "sampler":
+                class_type = "KSampler";
+                inputs["seed"] = node.data.seed || Math.floor(Math.random() * 10000000);
+                inputs["steps"] = node.data.steps || 20;
+                inputs["cfg"] = node.data.cfg || 8.0;
+                inputs["sampler_name"] = node.data.sampler || "euler";
+                inputs["scheduler"] = node.data.scheduler || "normal";
+                inputs["denoise"] = node.data.denoise ?? 1.0;
+                break;
+            case "emptyLatent":
+                class_type = "EmptyLatentImage";
+                inputs["width"] = node.data.width || 512;
+                inputs["height"] = node.data.height || 512;
+                inputs["batch_size"] = node.data.batch_size || 1;
+                break;
+            case "vaeEncode":
+                class_type = "VAEEncode";
+                break;
+            case "vaeDecode":
+                class_type = "VAEDecode";
+                break;
+            case "output":
+                class_type = "SaveImage";
+                inputs["filename_prefix"] = "AiStudio_WF";
+                break;
+            case "loadImage":
+                class_type = "LoadImage";
+                inputs["image"] = node.data.filename || "example.png";
+                inputs["upload"] = "image";
+                break;
+            case "lora":
+                class_type = "LoraLoader";
+                inputs["lora_name"] = node.data.lora_name || "";
+                inputs["strength_model"] = node.data.strength_model || 1.0;
+                inputs["strength_clip"] = node.data.strength_clip || 1.0;
+                break;
+            case "controlNet": {
+                const loaderId = `${node.id}_loader`;
+                comfyWorkflow[loaderId] = {
+                    class_type: "ControlNetLoader",
+                    inputs: { control_net_name: node.data.model || "" }
+                };
+                class_type = "ControlNetApply";
+                inputs["strength"] = node.data.strength || 1.0;
+                inputs["control_net"] = [loaderId, 0];
+                break;
+            }
+            case "videoCombine":
+                class_type = "VHS_VideoCombine";
+                inputs["frame_rate"] = node.data.fps || 16;
+                inputs["loop_count"] = 0;
+                inputs["filename_prefix"] = "AiStudio_WF_Video";
+                inputs["format"] = "video/h264-mp4";
+                inputs["pix_fmt"] = "yuv420p";
+                inputs["crf"] = 19;
+                inputs["save_output"] = true;
+                break;
+
+            // Wan 2.1 Native Node Support
+            case "unetLoader":
+                class_type = "UNETLoader";
+                inputs["unet_name"] = node.data.model || "wan2.1_t2v_1.3B_bf16.safetensors";
+                inputs["weight_dtype"] = "default";
+                break;
+            case "clipLoader":
+                class_type = "CLIPLoader";
+                inputs["clip_name"] = node.data.model || "umt5_xxl_fp8_e4m3fn_scaled.safetensors";
+                inputs["type"] = "wan";
+                break;
+            case "vaeLoader":
+                class_type = "VAELoader";
+                inputs["vae_name"] = node.data.model || "wan_2.1_vae.safetensors";
+                break;
+            case "wanT2V":
+                class_type = "KSampler";
+                inputs["seed"] = Math.floor(Math.random() * 1000000000);
+                inputs["steps"] = node.data.steps || 30;
+                inputs["cfg"] = node.data.cfg || 6.0;
+                inputs["sampler_name"] = "uni_pc_bh2";
+                inputs["scheduler"] = "simple";
+                inputs["denoise"] = 1.0;
+                break;
+            case "wanEmptyLatent":
+                class_type = "EmptyHunyuanLatentVideo";
+                inputs["width"] = node.data.width || 832;
+                inputs["height"] = node.data.height || 480;
+                inputs["length"] = node.data.video_frames || 81;
+                inputs["batch_size"] = 1;
+                break;
+
+            default:
+                class_type = node.type;
+                inputs = { ...node.data };
+        }
+
+        comfyWorkflow[node.id] = { class_type, inputs };
+    });
+
+    edges.forEach(edge => {
+        const targetNode = comfyWorkflow[edge.target];
+        if (!targetNode) return;
+
+        let inputName = edge.targetHandle || "";
+        const handleMap: Record<string, string> = {
+            "latent_in": "latent_image", "clip_in": "clip", "model_in": "model",
+            "conditioning_in": "conditioning", "image_in": "image", "pixels": "pixels",
+            "vae": "vae", "samples": "samples", "mask": "mask", "clip_vision": "clip_vision",
+            "images": "images", "start_image": "start_image", "model": "model",
+            "positive": "positive", "negative": "negative", "latent": "latent_image",
+            "clip": "clip", "vae_in": "vae"
+        };
+        if (handleMap[inputName]) inputName = handleMap[inputName];
+        if (targetNode.class_type === "VAEDecode" && inputName === "latent") inputName = "samples";
+
+        if (inputName) {
+            let outputIndex = 0;
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            const sourceHandle = edge.sourceHandle;
+
+            if (sourceNode?.type === "loadModel") {
+                if (sourceHandle === "model") outputIndex = 0;
+                else if (sourceHandle === "clip") outputIndex = 1;
+                else if (sourceHandle === "vae") outputIndex = 2;
+            } else if (sourceNode?.type === "lora") {
+                if (sourceHandle === "model_out") outputIndex = 0;
+                else if (sourceHandle === "clip_out") outputIndex = 1;
+            } else if (sourceNode?.type === "wanI2V" || sourceNode?.type === "wanLoader") {
+                if (sourceHandle === "positive") outputIndex = 0;
+                else if (sourceHandle === "negative") outputIndex = 1;
+                else outputIndex = 2;
+            }
+            // Add other index mappings as needed, but default 0 works for most
+
+            targetNode.inputs[inputName] = [edge.source, outputIndex];
+        }
+    });
+
+    return comfyWorkflow;
+}
+
 const generateSimpleWorkflow = (params: any) => {
     const type = params.type || "txt2img";
     const ID = {
@@ -446,6 +622,10 @@ async function processJob(job: any) {
                 mask_filename: maskFilename,
                 model_id: job.params.model_id
             });
+        } else if (workflow.nodes && workflow.edges) {
+            // Enterprise Grade: Convert ReactFlow format back to ComfyUI API format
+            console.log(`🔄 Detected ReactFlow data structure. Converting for ComfyUI...`);
+            workflow = convertReactFlowToComfyUI(workflow.nodes, workflow.edges);
         }
 
         // 3. Send to ComfyUI
