@@ -172,7 +172,8 @@ export default function GenerateVideoPage() {
                 } else if (update.status === 'failed') {
                     setStatusMessage("Production Error");
                 } else if (update.current_node) {
-                    setStatusMessage(`Synthesis: ${update.current_node} (${update.progress || 0}%)`);
+                    const nodeLabel = !isNaN(Number(update.current_node)) ? `Node ${update.current_node}` : update.current_node;
+                    setStatusMessage(`Synthesis: ${nodeLabel} (${update.progress || 0}%)`);
                 } else if (update.status === 'processing') {
                     setStatusMessage(`Rendering Cinematic... (${update.progress || 0}%)`);
                 }
@@ -181,7 +182,7 @@ export default function GenerateVideoPage() {
                 if (update.status === 'completed') {
                     const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
                     if (firstOutput) {
-                        setGeneratedImage(firstOutput);
+                        setGeneratedImage(`${firstOutput}?t=${Date.now()}`);
                     }
                     setIsGenerating(false);
                     setProgress(100);
@@ -227,7 +228,7 @@ export default function GenerateVideoPage() {
                         .maybeSingle();
 
                     if (asset?.file_path) {
-                        setGeneratedImage(asset.file_path);
+                        setGeneratedImage(`${asset.file_path}?t=${Date.now()}`);
                     }
 
                     setIsGenerating(false);
@@ -243,7 +244,8 @@ export default function GenerateVideoPage() {
                 setCurrentJobId(null);
                 alert(`Production Failed: ${realtimeJobUpdate.error_message || 'Unknown error'}`);
             } else if (realtimeJobUpdate.current_node) {
-                setStatusMessage(`Synthesis: ${realtimeJobUpdate.current_node} (${realtimeJobUpdate.progress}%)`);
+                const nodeLabel = !isNaN(Number(realtimeJobUpdate.current_node)) ? `Node ${realtimeJobUpdate.current_node}` : realtimeJobUpdate.current_node;
+                setStatusMessage(`Synthesis: ${nodeLabel} (${realtimeJobUpdate.progress}%)`);
             }
         }
     }, [realtimeJobUpdate, isGenerating, currentJobId]);

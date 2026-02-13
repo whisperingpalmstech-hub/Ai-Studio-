@@ -160,12 +160,12 @@ function WorkflowEditorContent() {
                         if (result.type === 'video') {
                             return {
                                 ...node,
-                                data: { ...node.data, preview: result.url }
+                                data: { ...node.data, preview: `${result.url}?t=${Date.now()}` }
                             };
                         } else {
                             return {
                                 ...node,
-                                data: { ...node.data, image: result.url }
+                                data: { ...node.data, image: `${result.url}?t=${Date.now()}` }
                             };
                         }
                     }

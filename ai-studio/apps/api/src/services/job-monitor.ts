@@ -30,7 +30,7 @@ class JobMonitorService {
                         nodeId: job.current_node, // Worker sets current_node to the text label
                         message: job.status === 'completed' ? 'Generation Complete' :
                             job.status === 'failed' ? `Error: ${job.error_message}` :
-                                `Processing: ${job.current_node || 'Initializing'}...`,
+                                `Processing: ${!isNaN(Number(job.current_node)) ? 'Node ' + job.current_node : (job.current_node || 'Initializing')}...`,
                         results: job.results // Node-specific results for live preview
                     });
 

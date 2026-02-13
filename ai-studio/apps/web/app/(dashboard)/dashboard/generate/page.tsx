@@ -186,7 +186,8 @@ export default function GeneratePage() {
                 } else if (update.status === 'failed') {
                     setStatusMessage("Error: Job failed");
                 } else if (update.current_node) {
-                    setStatusMessage(`Status: ${update.current_node} (${update.progress || 0}%)`);
+                    const nodeLabel = !isNaN(Number(update.current_node)) ? `Node ${update.current_node}` : update.current_node;
+                    setStatusMessage(`Status: ${nodeLabel} (${update.progress || 0}%)`);
                 } else if (update.status === 'processing') {
                     setStatusMessage(`Generating... (${update.progress || 0}%)`);
                 }
@@ -196,7 +197,7 @@ export default function GeneratePage() {
                     const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
 
                     if (firstOutput && typeof firstOutput === 'string') {
-                        setGeneratedImage(firstOutput);
+                        setGeneratedImage(`${firstOutput}?t=${Date.now()}`);
                     }
 
                     // Always stop generation state on completed
@@ -265,7 +266,7 @@ export default function GeneratePage() {
 
             if (update.status === 'completed') {
                 const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
-                if (firstOutput) setGeneratedImage(firstOutput);
+                if (firstOutput) setGeneratedImage(`${firstOutput}?t=${Date.now()}`);
 
                 setIsGenerating(false);
                 setProgress(100);
@@ -278,7 +279,8 @@ export default function GeneratePage() {
                 setCurrentJobId(null);
                 alert(`Job Failed: ${update.error_message || 'Unknown error'}`);
             } else if (update.current_node) {
-                setStatusMessage(`Status: ${update.current_node} (${update.progress}%)`);
+                const nodeLabel = !isNaN(Number(update.current_node)) ? `Node ${update.current_node}` : update.current_node;
+                setStatusMessage(`Status: ${nodeLabel} (${update.progress}%)`);
             }
         }
     }, [realtimeJobUpdate, isGenerating, currentJobId]);
@@ -293,9 +295,9 @@ export default function GeneratePage() {
             if (type === "job_progress") {
                 setProgress(prev => Math.max(prev, wsProgress || 0));
                 if (message) setStatusMessage(message);
-            } else if (type === "job_completed") {
-                if (images && images.length > 0) setGeneratedImage(images[0]);
-                else if (asset && asset.file_path) setGeneratedImage(asset.file_path);
+            } else if (type === "job_complete") {
+                if (images && images.length > 0) setGeneratedImage(`${images[0]}?t=${Date.now()}`);
+                else if (asset && asset.file_path) setGeneratedImage(`${asset.file_path}?t=${Date.now()}`);
 
                 setIsGenerating(false);
                 setProgress(100);
