@@ -98,7 +98,7 @@ class ComfyUIWebSocketService {
                         .update({
                             progress: percent,
                             current_node: node,
-                            // Optionally update current_step if value is step count
+                            status: "processing"
                         })
                         .eq("id", promptInfo.jobId);
                 } catch (err) {

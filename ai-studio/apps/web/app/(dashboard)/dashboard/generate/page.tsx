@@ -153,28 +153,35 @@ export default function GeneratePage() {
                 const update = job as any;
                 console.log(`📥 [${update.status}] Progress: ${update.progress}% | Node: ${update.current_node}`);
 
-                setProgress(prev => {
-                    if (update.progress !== undefined && update.progress > prev) return update.progress;
-                    return prev;
-                });
-
-                if (update.current_node) {
-                    setStatusMessage(`Node: ${update.current_node} (${update.progress}%)`);
-                } else if (update.status === 'processing') {
-                    setStatusMessage(`Generating... (${update.progress}%)`);
-                } else {
-                    setStatusMessage(update.status.charAt(0).toUpperCase() + update.status.slice(1) + "...");
+                // 1. Update Progress
+                if (update.progress !== undefined && update.progress >= progress) {
+                    setProgress(update.progress);
                 }
 
+                // 2. Update Status Message
+                if (update.status === 'completed') {
+                    setStatusMessage("Generation Complete!");
+                } else if (update.status === 'failed') {
+                    setStatusMessage("Error: Job failed");
+                } else if (update.current_node) {
+                    setStatusMessage(`Status: ${update.current_node} (${update.progress || 0}%)`);
+                } else if (update.status === 'processing') {
+                    setStatusMessage(`Generating... (${update.progress || 0}%)`);
+                }
+
+                // 3. Handle Completion
                 if (update.status === 'completed') {
                     const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
-                    if (firstOutput && typeof firstOutput === 'string' && (firstOutput.startsWith('http') || firstOutput.startsWith('/'))) {
+
+                    if (firstOutput && typeof firstOutput === 'string') {
                         setGeneratedImage(firstOutput);
-                        setIsGenerating(false);
-                        setProgress(100);
-                        setStatusMessage("Generation Complete!");
-                        setCurrentJobId(null);
                     }
+
+                    // Always stop generation state on completed
+                    setIsGenerating(false);
+                    setProgress(100);
+                    setCurrentJobId(null);
+                    setRefreshKey(prev => prev + 1);
                 } else if (update.status === 'failed') {
                     setIsGenerating(false);
                     setCurrentJobId(null);
@@ -183,11 +190,34 @@ export default function GeneratePage() {
             }
         };
 
+        const checkTimeout = () => {
+            if (!isGenerating) return;
+            const now = Date.now();
+            // 10 minutes timeout for video, 3 mins for image
+            const maxDuration = (mode === 't2v' || mode === 'i2v') ? 600000 : 180000;
+            const startTime = localStorage.getItem(`job_start_${currentJobId}`);
+            if (startTime && now - parseInt(startTime) > maxDuration) {
+                console.warn("Job timed out - resetting UI");
+                setIsGenerating(false);
+                setCurrentJobId(null);
+                setStatusMessage("Job timed out. Please try again.");
+                localStorage.removeItem(`job_start_${currentJobId}`);
+            }
+        };
+
         if (isGenerating && currentJobId) {
-            console.log("🚀 Polling started for Job:", currentJobId);
+            console.log("🚀 Tracking started for Job:", currentJobId);
+            // Store start time for timeout check
+            if (!localStorage.getItem(`job_start_${currentJobId}`)) {
+                localStorage.setItem(`job_start_${currentJobId}`, Date.now().toString());
+            }
+
             // Run once immediately
             poll();
-            interval = setInterval(poll, 1500);
+            interval = setInterval(() => {
+                poll();
+                checkTimeout();
+            }, 2000);
         }
 
         return () => {
@@ -211,36 +241,52 @@ export default function GeneratePage() {
                 setProgress(prev => Math.max(prev, update.progress));
             }
 
-            if (update.current_node) {
-                setStatusMessage(`Node: ${update.current_node} (${update.progress}%)`);
-            }
-
             if (update.status === 'completed') {
                 const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
+                if (firstOutput) setGeneratedImage(firstOutput);
 
-                if (firstOutput && typeof firstOutput === 'string' && (firstOutput.startsWith('http') || firstOutput.startsWith('/'))) {
-                    setGeneratedImage(firstOutput);
-                    setIsGenerating(false);
-                    setProgress(100);
-                    setStatusMessage("Generation Complete!");
-                    setRefreshKey(prev => prev + 1);
-                    setCurrentJobId(null);
-                }
+                setIsGenerating(false);
+                setProgress(100);
+                setStatusMessage("Generation Complete!");
+                setRefreshKey(prev => prev + 1);
+                setCurrentJobId(null);
             } else if (update.status === 'failed') {
                 setIsGenerating(false);
                 setProgress(0);
                 setCurrentJobId(null);
                 alert(`Job Failed: ${update.error_message || 'Unknown error'}`);
+            } else if (update.current_node) {
+                setStatusMessage(`Status: ${update.current_node} (${update.progress}%)`);
             }
         }
     }, [realtimeJobUpdate, isGenerating, currentJobId]);
 
     useEffect(() => {
         if (lastMessage) {
-            console.log("WS Message:", lastMessage);
-            // Handle WS messages if any (optional now)
+            const { type, jobId, progress: wsProgress, message, images, asset } = lastMessage;
+
+            // Only care about messages for current job
+            if (jobId && currentJobId && jobId !== currentJobId) return;
+
+            if (type === "job_progress") {
+                setProgress(prev => Math.max(prev, wsProgress || 0));
+                if (message) setStatusMessage(message);
+            } else if (type === "job_completed") {
+                if (images && images.length > 0) setGeneratedImage(images[0]);
+                else if (asset && asset.file_path) setGeneratedImage(asset.file_path);
+
+                setIsGenerating(false);
+                setProgress(100);
+                setStatusMessage("Generation Complete!");
+                setRefreshKey(prev => prev + 1);
+                setCurrentJobId(null);
+            } else if (type === "job_failed") {
+                setIsGenerating(false);
+                setCurrentJobId(null);
+                alert(`Job Failed: ${lastMessage.error || 'Unknown error'}`);
+            }
         }
-    }, [lastMessage]);
+    }, [lastMessage, currentJobId]);
 
     // Image Upload State
     const [inputImage, setInputImage] = useState<string | null>(null);

@@ -333,13 +333,23 @@ async function processJob(job: any) {
                     console.log(`⏳ Job ${job.id} progress: ${progress}%`);
                     const { error: upError } = await supabase.from('jobs').update({
                         progress,
-                        current_node: 'KSampler'
+                        status: 'processing',
+                        current_node: 'Sampling'
                     }).eq('id', job.id);
                     if (upError) console.error("❌ Supabase Update Error (Progress):", upError.message);
                 } else if (message.type === 'executing' && message.data.node) {
-                    console.log(`🎯 Executing node: ${message.data.node}`);
+                    const nodeId = message.data.node;
+                    console.log(`🎯 Executing node: ${nodeId}`);
+
+                    let statusLabel = 'Processing';
+                    if (nodeId === '9' || nodeId === 'VHS_VideoCombine') statusLabel = 'Encoding Video';
+                    else if (nodeId === '7' || nodeId === 'KSampler') statusLabel = 'Sampling';
+                    else if (nodeId === '8' || nodeId === 'VAEDecode') statusLabel = 'Decoding';
+                    else if (nodeId === '13' || nodeId === 'WanImageToVideo') statusLabel = 'Analyzing Motion';
+
                     const { error: upError } = await supabase.from('jobs').update({
-                        current_node: message.data.node
+                        current_node: statusLabel,
+                        status: 'processing'
                     }).eq('id', job.id);
                     if (upError) console.error("❌ Supabase Update Error (Node):", upError.message);
                 }
