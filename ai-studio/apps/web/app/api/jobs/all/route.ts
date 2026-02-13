@@ -1,5 +1,6 @@
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export async function DELETE(request: Request) {
@@ -24,9 +25,15 @@ export async function DELETE(request: Request) {
 
         const jobIds = jobs.map((job: any) => job.id);
 
-        // 3. Delete Assets from Storage (Best Effort)
+        // 3. Delete from DB using Admin Client (Bypass RLS if restricted)
+        const supabaseAdmin = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { auth: { persistSession: false } }
+        );
+
         // Find assets associated with these jobs
-        const { data: assets } = await supabase
+        const { data: assets } = await supabaseAdmin
             .from("assets")
             .select("file_path")
             .in("job_id", jobIds);
@@ -50,14 +57,14 @@ export async function DELETE(request: Request) {
                 // Delete in chunks of 100 to avoid limits
                 for (let i = 0; i < pathsToRm.length; i += 100) {
                     const chunk = pathsToRm.slice(i, i + 100);
-                    await supabase.storage.from("assets").remove(chunk);
+                    await supabaseAdmin.storage.from("assets").remove(chunk);
                 }
             }
         }
 
         // 4. Delete Records from DB
-        await supabase.from("assets").delete().in("job_id", jobIds);
-        const { error: deleteError } = await supabase
+        await supabaseAdmin.from("assets").delete().in("job_id", jobIds);
+        const { error: deleteError } = await supabaseAdmin
             .from("jobs")
             .delete()
             .in("id", jobIds);

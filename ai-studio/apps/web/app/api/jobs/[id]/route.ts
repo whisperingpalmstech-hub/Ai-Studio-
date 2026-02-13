@@ -1,5 +1,6 @@
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export async function DELETE(
@@ -33,22 +34,21 @@ export async function DELETE(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // 3. Delete from DB
-        // We rely on RLS/Cascade if configured, but let's be explicit if needed.
-        // Also cleanup storage if possible.
-        // NOTE: Standard client might not have permissions to list storage buckets easily without service role,
-        // so we'll do best-effort or rely on DB delete.
+        // 3. Delete from DB using Admin Client (Bypass RLS if restricted)
+        const supabaseAdmin = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { auth: { persistSession: false } }
+        );
 
         // Attempt to clean up specific assets via DB lookup first
-        const { data: assets } = await supabase
+        const { data: assets } = await supabaseAdmin
             .from("assets")
             .select("file_path")
             .eq("job_id", jobId);
 
         if (assets && assets.length > 0) {
             const paths = assets.map((a: any) => {
-                // Convert full URL to relative path if needed, or if file_path is already relative
-                // Assuming relative "generations/..." based on uploads/worker logic
                 try {
                     if (a.file_path && a.file_path.startsWith('http')) {
                         const url = new URL(a.file_path);
@@ -57,21 +57,20 @@ export async function DELETE(
                     }
                     return a.file_path;
                 } catch (e) {
-                    return a.file_path; // Fallback to raw string
+                    return a.file_path;
                 }
             }).filter((p: any) => p !== null && typeof p === 'string' && p.trim() !== '');
 
-            // Try to delete from storage
             if (paths.length > 0) {
-                await supabase.storage.from("assets").remove(paths);
+                await supabaseAdmin.storage.from("assets").remove(paths);
             }
         }
 
         // Delete Assets Record
-        await supabase.from("assets").delete().eq("job_id", jobId);
+        await supabaseAdmin.from("assets").delete().eq("job_id", jobId);
 
         // Delete Job Record
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseAdmin
             .from("jobs")
             .delete()
             .eq("id", jobId);

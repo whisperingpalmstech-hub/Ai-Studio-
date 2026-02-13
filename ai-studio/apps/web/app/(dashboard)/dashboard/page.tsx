@@ -30,8 +30,9 @@ export default async function DashboardPage() {
         supabase.from('assets').select('*').eq('user_id', user.id).eq('type', 'image').order('created_at', { ascending: false }).limit(4)
     ]);
 
-    const credits = profile?.credits || 0;
+    const credits = (profile as any)?.credits || 0;
     const timeSaved = Math.round((generationCount || 0) * 0.5); // Assume 30 mins saved per image vs manual creation
+    const gens = (recentGenerations as any[]) || [];
 
     return (
         <div>
@@ -270,7 +271,7 @@ export default async function DashboardPage() {
                     </Link>
                 </div>
 
-                {(!recentGenerations || recentGenerations.length === 0) ? (
+                {(!gens || gens.length === 0) ? (
                     /* Empty State */
                     <div style={{
                         borderRadius: '0.75rem',
@@ -323,7 +324,7 @@ export default async function DashboardPage() {
                         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                         gap: '1.5rem'
                     }}>
-                        {recentGenerations.map((gen) => (
+                        {gens.map((gen) => (
                             <Link href="/dashboard/gallery" key={gen.id} style={{ textDecoration: 'none' }}>
                                 <div style={{
                                     borderRadius: '0.75rem',
