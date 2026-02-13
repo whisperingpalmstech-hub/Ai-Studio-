@@ -301,12 +301,99 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
     });
 });
 
-// DELETE /api/v1/jobs/:id - Delete or Cancel a job
+// DELETE /api/v1/jobs/all - Delete all jobs for the user (Fresh Start)
+router.delete("/all", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.user!;
+        console.log(`🧹 Clearing all jobs for user ${user.id}...`);
+
+        // 1. Get all jobs to find assets
+        const { data: jobs } = await supabaseAdmin
+            .from("jobs")
+            .select("id")
+            .eq("user_id", user.id);
+
+        if (!jobs || jobs.length === 0) {
+            return res.json({ message: "No jobs to delete" });
+        }
+
+        const jobIds = (jobs as any[]).map(j => j.id);
+
+        // 2. Clear from Queue (Best Effort)
+        for (const jobId of jobIds) {
+            try {
+                const queueJob = await jobQueue.getJob(jobId);
+                if (queueJob) await queueJob.remove();
+            } catch (e) {
+                // Ignore queue errors
+            }
+        }
+
+        // 3. Delete all assets from Storage
+        // This is expensive if loop, but we can list and delete by prefix if structure allows
+        // Our structure is 'generations/userId/jobId/...' so we can delete the user folder
+        const { data: fileList } = await supabaseAdmin.storage
+            .from('assets')
+            .list(`generations/${user.id}`);
+
+        if (fileList && fileList.length > 0) {
+            // This only lists top level, might need recursive delete or just rely on DB cascade if configured?
+            // Supabase storage doesn't support folder delete easily without listing all files.
+            // For now, let's rely on cleaning specific assets tracked in DB
+        }
+
+        const { data: assets } = await supabaseAdmin
+            .from("assets")
+            .select("file_path")
+            .in("job_id", jobIds);
+
+        if (assets && assets.length > 0) {
+            const pathsToDelete = assets
+                .map((a: any) => {
+                    const url = a.file_path;
+                    // Extract path from public URL if necessary
+                    try {
+                        if (url.startsWith('http')) {
+                            const urlObj = new URL(url);
+                            // Pathname: /storage/v1/object/public/assets/generations/...
+                            // We need: generations/...
+                            const parts = urlObj.pathname.split('/public/assets/');
+                            if (parts[1]) return parts[1];
+                        }
+                        return url; // Assume it's already a relative path
+                    } catch (e) { return null; }
+                })
+                .filter((p: any) => p !== null);
+
+            if (pathsToDelete.length > 0) {
+                // Delete in chunks of 100 to avoid limits
+                for (let i = 0; i < pathsToDelete.length; i += 100) {
+                    const chunk = pathsToDelete.slice(i, i + 100);
+                    await supabaseAdmin.storage.from("assets").remove(chunk);
+                }
+            }
+        }
+
+        // 4. Delete From DB (Cascade should handle assets table if setup, but we do explicit)
+        await supabaseAdmin.from("assets").delete().in("job_id", jobIds);
+        await supabaseAdmin.from("jobs").delete().in("id", jobIds);
+
+        res.json({ message: `Successfully deleted ${jobs.length} jobs and cleaned up resources.` });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/v1/jobs/:id - Delete a single job
 router.delete("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         const user = req.user!;
         const { id: jobId } = req.params;
 
+        console.log(`🗑️ Deleting job ${jobId} for user ${user.id}`);
+
+        // 1. Get job details
         const { data: job, error } = await supabaseAdmin
             .from("jobs")
             .select("*")
@@ -318,53 +405,53 @@ router.delete("/:id", async (req: AuthenticatedRequest, res: Response, next: Nex
             throw new NotFoundError("Job not found");
         }
 
-        const status = (job as any).status;
-
-        // 1. If pending/queued, cancel it
-        if (status === "pending" || status === "queued") {
+        // 2. Remove from Queue
+        try {
             const queueJob = await jobQueue.getJob(jobId);
             if (queueJob) {
                 await queueJob.remove();
+                console.log(`✅ Removed job ${jobId} from Redis queue`);
             }
-
-            await ((supabaseAdmin as any)
-                .from("jobs")
-                .update({ status: "cancelled" })
-                .eq("id", jobId));
-
-            return res.json({ message: "Job cancelled successfully" });
+        } catch (e) {
+            console.warn(`⚠️ Failed to remove from queue:`, e);
         }
 
-        // 2. If completed/failed/cancelled, delete everything
-        // Get assets to delete from storage
+        // 3. Delete Assets from Storage
         const { data: assets } = await supabaseAdmin
             .from("assets")
             .select("file_path")
             .eq("job_id", jobId);
 
         if (assets && assets.length > 0) {
-            // Extract storage paths from URLs if necessary, or use the path structure
-            // In our current setup, we store public URLs or paths starting with /outputs
-            // The storage path is generations/${userId}/${jobId}/${filename}
-            const pathsToDelete = assets.map((a: any) => {
-                const url = a.file_path;
-                // If it's a full Supabase URL, we need to extract the path after 'assets/'
-                if (url.includes('/assets/')) {
-                    return url.split('/assets/')[1];
-                }
-                return url.replace('/outputs/', ''); // Fallback for old local paths
-            });
+            const pathsToDelete = assets
+                .map((a: any) => {
+                    const url = a.file_path;
+                    try {
+                        if (url.startsWith('http')) {
+                            const parts = new URL(url).pathname.split('/public/assets/');
+                            return parts[1] || null;
+                        }
+                        return url;
+                    } catch (e) { return null; }
+                })
+                .filter((p: any) => p !== null);
 
             if (pathsToDelete.length > 0) {
-                await supabaseAdmin.storage.from("assets").remove(pathsToDelete);
+                const { error: storageError } = await supabaseAdmin.storage.from("assets").remove(pathsToDelete);
+                if (storageError) console.error("❌ Storage delete error:", storageError);
+                else console.log(`✅ Deleted ${pathsToDelete.length} files from storage`);
             }
         }
 
-        // Delete from DB
-        await (supabaseAdmin as any).from("assets").delete().eq("job_id", jobId);
-        await (supabaseAdmin as any).from("jobs").delete().eq("id", jobId);
+        // 4. Delete from DB
+        await supabaseAdmin.from("assets").delete().eq("job_id", jobId);
 
-        res.json({ message: "Job and associated assets deleted successfully" });
+        // If the job is currently processing, the worker needs to know. 
+        // We delete the record, so the worker will fail to update. 
+        // This is acceptable as long as we catch the error in the worker.
+        await supabaseAdmin.from("jobs").delete().eq("id", jobId);
+
+        res.json({ message: "Job deleted successfully" });
     } catch (err) {
         next(err);
     }

@@ -167,7 +167,12 @@ export default function GeneratePage() {
                 .single();
 
             if (error) {
-                console.error("❌ Polling Query Error:", error.message);
+                if (error.code === 'PGRST116') {
+                    console.log("⚠️ Job not found (likely deleted). Resetting UI.");
+                    handleResetUI();
+                } else {
+                    console.error("❌ Polling Query Error:", error.message);
+                }
                 return;
             }
 
@@ -1391,7 +1396,145 @@ export default function GeneratePage() {
                     </button>
                 </div>
 
+                <ActiveJobsList refreshKey={refreshKey} />
                 <RecentGenerationsGrid refreshKey={refreshKey} />
+            </div>
+        </div>
+    );
+}
+
+function ActiveJobsList({ refreshKey }: { refreshKey: number }) {
+    const [jobs, setJobs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { lastUpdate } = useJobRealtime();
+
+    const fetchJobs = async () => {
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase
+                .from('jobs')
+                .select('*')
+                .eq('user_id', user.id)
+                .in('status', ['pending', 'queued', 'processing'])
+                .order('created_at', { ascending: false });
+
+            if (data) setJobs(data);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchJobs();
+    }, [refreshKey, lastUpdate]);
+
+    const handleCancel = async (jobId: string) => {
+        if (!confirm("Cancel/Delete this job?")) return;
+        try {
+            await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+            setJobs(prev => prev.filter(j => j.id !== jobId));
+        } catch (e) {
+            console.error(e);
+            alert("Failed to cancel job");
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!confirm("Are you sure? This will delete ALL pending and active jobs.")) return;
+        try {
+            await fetch(`/api/jobs/all`, { method: 'DELETE' });
+            setJobs([]);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to clear jobs");
+        }
+    };
+
+    if (loading || jobs.length === 0) return null;
+
+    return (
+        <div style={{ marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Loader2 className="animate-spin" size={20} color="#6366f1" />
+                    Active Queue ({jobs.length})
+                </h2>
+                <button
+                    onClick={handleClearAll}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.5rem',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        fontWeight: 500
+                    }}
+                >
+                    Clear All Pending
+                </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {jobs.map(job => (
+                    <div key={job.id} style={{
+                        padding: '1rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.25rem',
+                                    backgroundColor: job.status === 'processing' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                                    color: job.status === 'processing' ? '#818cf8' : '#9ca3af',
+                                    textTransform: 'uppercase',
+                                    fontWeight: 600
+                                }}>
+                                    {job.status}
+                                </span>
+                                <span style={{ color: '#d1d5db', fontWeight: 500, fontSize: '0.9rem' }}>
+                                    {job.type.toUpperCase()}
+                                </span>
+                            </div>
+                            <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
+                                {job.params?.prompt ? job.params.prompt.substring(0, 60) + "..." : "No prompt"}
+                            </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            {job.status === 'processing' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <div style={{ width: '100px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${job.progress || 0}%`, height: '100%', background: '#6366f1' }} />
+                                    </div>
+                                    <span style={{ fontSize: '0.75rem', color: '#6366f1' }}>{job.progress}%</span>
+                                </div>
+                            )}
+                            <button
+                                onClick={() => handleCancel(job.id)}
+                                style={{
+                                    padding: '0.4rem',
+                                    borderRadius: '0.5rem',
+                                    background: 'transparent',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    color: '#ef4444',
+                                    cursor: 'pointer'
+                                }}
+                                title="Cancel Job"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

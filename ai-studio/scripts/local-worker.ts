@@ -29,6 +29,8 @@ console.log(`📍 Supabase: ${SUPABASE_URL}`);
 console.log(`📍 ComfyUI: ${COMFYUI_URL}`);
 console.log(`📍 ComfyUI Input: ${COMFYUI_INPUT_DIR}`);
 
+const STUCK_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+
 async function uploadImageToComfy(dataUrl: string, filename: string) {
     try {
         const base64Data = dataUrl.split(',')[1];
@@ -812,24 +814,57 @@ async function processJob(job: any) {
             }
         }
 
-        // 6. Complete Job
-        await supabase.from('jobs').update({
+
+        const { error: completeError } = await supabase.from('jobs').update({
             status: 'completed',
             progress: 100,
             outputs: assetUrls,
-            results: nodeResults, // CRITICAL: This enables live preview in Workflow Editor
+            results: nodeResults,
             completed_at: new Date().toISOString()
         }).eq('id', job.id);
+
+        if (completeError) throw completeError;
 
         console.log(`✨ Job ${job.id} finished successfully`);
 
     } catch (err: any) {
         console.error(`❌ Job ${job.id} failed:`, err.message);
-        await supabase.from('jobs').update({
+
+        // Only update if the job still exists (it might have been deleted)
+        const { error } = await supabase.from('jobs').update({
             status: 'failed',
             error_message: err.message,
             completed_at: new Date().toISOString()
         }).eq('id', job.id);
+
+        if (error) console.warn("Could not update failed status (job might be deleted):", error.message);
+    }
+}
+
+// Cleanup stuck jobs (older than 10 mins)
+async function cleanupStuckJobs() {
+    const cutoff = new Date(Date.now() - STUCK_TIMEOUT).toISOString();
+
+    // Find jobs sticking in processing for too long
+    const { data: stuckJobs } = await supabase
+        .from('jobs')
+        .select('id, created_at')
+        .eq('status', 'processing')
+        .lt('created_at', cutoff); // Using created_at as a proxy for now, ideally use started_at or updated_at
+
+    if (stuckJobs && stuckJobs.length > 0) {
+        console.log(`🧹 Found ${stuckJobs.length} timed-out jobs. Marking as failed...`);
+        for (const job of stuckJobs) {
+            await supabase.from('jobs').update({
+                status: 'failed',
+                error_message: 'Job timed out (limit: 10 mins)'
+            }).eq('id', job.id);
+
+            // Try to interrupt ComfyUI just in case
+            try {
+                await axios.post(`${COMFYUI_URL}/interrupt`);
+            } catch (e) { /* ignore */ }
+        }
     }
 }
 
@@ -842,7 +877,7 @@ async function resetStuckJobs() {
         .eq('status', 'processing');
 
     if (stuckJobs && stuckJobs.length > 0) {
-        console.log(`⚠️ Found ${stuckJobs.length} stuck jobs. Resetting to 'pending'...`);
+        console.log(`⚠️ Found ${stuckJobs.length} stuck jobs (from restart). Resetting to 'pending'...`);
         for (const job of stuckJobs) {
             await supabase.from('jobs').update({ status: 'pending', current_node: null, progress: 0 }).eq('id', job.id);
         }
@@ -855,5 +890,6 @@ async function resetStuckJobs() {
 // Polling interval
 resetStuckJobs().then(() => {
     setInterval(pollForJobs, 1000);
+    setInterval(cleanupStuckJobs, 60 * 1000); // Check for stuck jobs every minute
     pollForJobs();
 });
