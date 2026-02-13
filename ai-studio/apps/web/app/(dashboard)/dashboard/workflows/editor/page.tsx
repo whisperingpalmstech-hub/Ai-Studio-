@@ -131,6 +131,7 @@ function WorkflowEditorContent() {
 
     const { lastMessage } = useWebSocket();
     const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
+    const [activeJobId, setActiveJobId] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -138,6 +139,84 @@ function WorkflowEditorContent() {
         setTimeout(() => setNotification(null), 4000);
     };
 
+    // PRIMARY channel: Supabase Realtime (works even without API server)
+    useEffect(() => {
+        if (!activeJobId) return;
+
+        const supabase = getSupabaseClient();
+        const channel = supabase
+            .channel(`workflow-job-${activeJobId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'jobs',
+                    filter: `id=eq.${activeJobId}`
+                },
+                (payload) => {
+                    const job = payload.new as any;
+                    console.log(`🔄 Realtime job update: status=${job.status}, node=${job.current_node}, progress=${job.progress}%`);
+
+                    if (job.status === 'processing') {
+                        const nodeId = job.current_node;
+                        const progress = job.progress;
+
+                        if (nodeId) {
+                            setExecutingNodeId(nodeId);
+                        }
+                        if (nodeId && progress !== undefined) {
+                            setNodes((nds) => nds.map((n) =>
+                                n.id === nodeId ? { ...n, data: { ...n.data, progress } } : n
+                            ));
+                        }
+                    } else if (job.status === 'completed') {
+                        console.log('✅ Job completed via Realtime');
+                        setExecutingNodeId(null);
+                        setActiveJobId(null);
+
+                        // Extract nodeResults from structured outputs
+                        const outputs = job.outputs;
+                        const nodeResults = outputs?.nodeResults || outputs?.node_results || null;
+
+                        if (nodeResults) {
+                            setNodes((nds) => nds.map((node) => {
+                                const nodeResultArray = nodeResults[node.id];
+                                if (nodeResultArray && nodeResultArray.length > 0) {
+                                    const result = nodeResultArray[0];
+                                    if (result.type === 'video') {
+                                        return {
+                                            ...node,
+                                            data: { ...node.data, preview: `${result.url}?t=${Date.now()}` }
+                                        };
+                                    } else {
+                                        return {
+                                            ...node,
+                                            data: { ...node.data, image: `${result.url}?t=${Date.now()}` }
+                                        };
+                                    }
+                                }
+                                return node;
+                            }));
+                        }
+                        showNotification('Workflow completed successfully!');
+                    } else if (job.status === 'failed') {
+                        setExecutingNodeId(null);
+                        setActiveJobId(null);
+                        showNotification(job.error_message || 'Job Failed', 'error');
+                    }
+                }
+            )
+            .subscribe((status) => {
+                console.log(`📡 Realtime subscription status: ${status}`);
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activeJobId]);
+
+    // SECONDARY channel: WebSocket (works when API server is running)
     useEffect(() => {
         if (!lastMessage) return;
 
@@ -149,7 +228,7 @@ function WorkflowEditorContent() {
                 setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, progress } } : n));
             }
         } else if (lastMessage.type === 'job_complete') {
-            console.log("Job Complete:", lastMessage);
+            console.log("Job Complete (WS):", lastMessage);
             setExecutingNodeId(null);
 
             if (lastMessage.results) {
@@ -383,7 +462,13 @@ function WorkflowEditorContent() {
             const data = await response.json();
 
             if (data.jobId) {
-                showNotification("Workflow Queued successfully!");
+                setActiveJobId(data.jobId);
+                // Clear previous execution state from all nodes
+                setNodes((nds) => nds.map((n) => ({
+                    ...n,
+                    data: { ...n.data, executing: false, progress: undefined }
+                })));
+                showNotification("Workflow Queued — watching for live updates...");
             } else if (data.error) {
                 throw new Error(data.error);
             } else {
@@ -540,6 +625,30 @@ function WorkflowEditorContent() {
                         {loading ? <div className="animate-spin">⌛</div> : <Play size={14} fill="white" />}
                         Queue Prompt
                     </button>
+
+                    {activeJobId && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(34, 197, 94, 0.15)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)',
+                            fontSize: '11px',
+                            color: '#4ade80',
+                            fontWeight: 500,
+                        }}>
+                            <div style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: '#4ade80',
+                                animation: 'pulse 1.5s ease-in-out infinite'
+                            }} />
+                            {executingNodeId ? `Running: Node ${executingNodeId}` : 'Processing...'}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -755,8 +864,17 @@ function WorkflowEditorContent() {
 
             <style jsx>{`
                 @keyframes slideIn {
-                    from { transform: translateY(100%) opacity: 0; }
-                    to { transform: translateY(0) opacity: 1; }
+                    from { transform: translateY(100%); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @keyframes pulse {
+                    0% { transform: scale(0.95); opacity: 0.5; }
+                    50% { transform: scale(1.05); opacity: 1; }
+                    100% { transform: scale(0.95); opacity: 0.5; }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
         </div>

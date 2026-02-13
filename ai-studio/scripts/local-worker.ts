@@ -688,8 +688,7 @@ async function processJob(job: any) {
                     console.log(`⏳ Job ${job.id} progress: ${progress}%`);
                     const { error: upError } = await supabase.from('jobs').update({
                         progress,
-                        status: 'processing',
-                        current_node: 'Sampling'
+                        status: 'processing'
                     }).eq('id', job.id);
                     if (upError) console.error("❌ Supabase Update Error (Progress):", upError.message);
                 } else if (message.type === 'executing' && message.data.node) {
@@ -847,8 +846,7 @@ async function processJob(job: any) {
         const { error: completeError } = await supabase.from('jobs').update({
             status: 'completed',
             progress: 100,
-            outputs: assetUrls,
-            // results: nodeResults, // Schema doesn't have results column
+            outputs: { urls: assetUrls, nodeResults },
             completed_at: new Date().toISOString()
         }).eq('id', job.id);
 

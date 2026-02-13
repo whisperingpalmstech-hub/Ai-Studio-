@@ -36,11 +36,16 @@ class JobMonitorService {
 
                     // If job is finished, send a job_complete message
                     if (job.status === 'completed') {
+                        // Extract nodeResults from structured outputs
+                        const outputs = job.outputs;
+                        const nodeResults = outputs?.nodeResults || outputs?.node_results || null;
+                        const urls = outputs?.urls || (Array.isArray(outputs) ? outputs : []);
+
                         webSocketService.sendToUser(job.user_id, {
                             type: "job_complete",
                             jobId: job.id,
-                            results: job.results,
-                            outputs: job.outputs
+                            results: nodeResults,
+                            outputs: urls
                         });
                     } else if (job.status === 'failed') {
                         webSocketService.sendToUser(job.user_id, {
