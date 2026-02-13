@@ -66,6 +66,7 @@ const generateSimpleWorkflow = (params: any) => {
     let denoise = 1.0;
 
     // Standard Image Generation
+    console.log(`🛠️ Generating workflow for type: ${type}`);
     if (type === "txt2img" || type === "img2img" || type === "inpaint" || type === "upscale") {
         const ID_OLD = {
             CHECKPOINT: "1",
@@ -314,6 +315,10 @@ const generateSimpleWorkflow = (params: any) => {
         };
     }
 
+    console.log("✅ Workflow generation complete. Nodes:", Object.keys(workflow));
+    if (type === "img2img") {
+        console.log("🖼️ Img2Img Path: Latent Node =", workflow["5"]?.inputs?.latent_image);
+    }
     return workflow;
 };
 
