@@ -98,13 +98,18 @@ export default function GenerateVideoPage() {
 
         const recoverJob = async () => {
             const supabase = getSupabaseClient();
-            console.log("🔍 Checking for active video jobs to recover...");
+            console.log("🔍 Checking for recent active video jobs to recover...");
+
+            // Only recover jobs from the last 15 minutes
+            const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
             const { data: latestJob } = await (supabase
                 .from('jobs') as any)
                 .select('*')
                 .eq('user_id', userId)
                 .in('status', ['pending', 'processing', 'queued'])
                 .in('type', ['t2v', 'i2v']) // Only video jobs
+                .gt('created_at', fifteenMinutesAgo)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -117,11 +122,25 @@ export default function GenerateVideoPage() {
                 if (!prompt && latestJob.params?.prompt) {
                     setPrompt(latestJob.params.prompt);
                 }
+            } else {
+                // Not in a generating state if no active recent job
+                setIsGenerating(false);
+                setCurrentJobId(null);
             }
         };
 
         recoverJob();
     }, [userId]);
+
+    const handleResetUI = () => {
+        setIsGenerating(false);
+        setCurrentJobId(null);
+        setProgress(0);
+        setStatusMessage("");
+        if (currentJobId) {
+            localStorage.removeItem(`job_video_start_${currentJobId}`);
+        }
+    };
 
     // Polling fallback
     useEffect(() => {
@@ -140,24 +159,32 @@ export default function GenerateVideoPage() {
             if (job) {
                 const update = job as any;
 
-                setProgress(prev => {
-                    if (update.progress !== undefined && update.progress > prev) return update.progress;
-                    return prev;
-                });
-
-                if (update.current_node) {
-                    setStatusMessage(`Process: ${update.current_node} (${update.progress}%)`);
+                // 1. Update Progress
+                if (update.progress !== undefined && update.progress >= progress) {
+                    setProgress(update.progress);
                 }
 
+                // 2. Update Status Message
+                if (update.status === 'completed') {
+                    setStatusMessage("Video Rendering Complete!");
+                } else if (update.status === 'failed') {
+                    setStatusMessage("Production Error");
+                } else if (update.current_node) {
+                    setStatusMessage(`Synthesis: ${update.current_node} (${update.progress || 0}%)`);
+                } else if (update.status === 'processing') {
+                    setStatusMessage(`Rendering Cinematic... (${update.progress || 0}%)`);
+                }
+
+                // 3. Handle Completion
                 if (update.status === 'completed') {
                     const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
                     if (firstOutput) {
                         setGeneratedImage(firstOutput);
-                        setIsGenerating(false);
-                        setProgress(100);
-                        setStatusMessage("Video Rendering Complete!");
-                        setCurrentJobId(null);
                     }
+                    setIsGenerating(false);
+                    setProgress(100);
+                    setCurrentJobId(null);
+                    setRefreshKey(prev => prev + 1);
                 } else if (update.status === 'failed') {
                     setIsGenerating(false);
                     setCurrentJobId(null);
@@ -181,18 +208,14 @@ export default function GenerateVideoPage() {
     const { lastUpdate: realtimeJobUpdate } = useJobRealtime(userId || undefined);
 
     useEffect(() => {
-        if (realtimeJobUpdate && isGenerating) {
-            console.log("Realtime Video Job Update:", realtimeJobUpdate);
+        if (realtimeJobUpdate && isGenerating && (realtimeJobUpdate.id === currentJobId || !currentJobId)) {
+            console.log("⚡ Realtime Video Job Update:", realtimeJobUpdate);
 
             if (realtimeJobUpdate.progress !== undefined) {
                 setProgress(prev => Math.max(prev, realtimeJobUpdate.progress));
             }
 
-            if (realtimeJobUpdate.current_node) {
-                setStatusMessage(`Rendering: ${realtimeJobUpdate.current_node} (${realtimeJobUpdate.progress}%)`);
-            }
-
-            if (realtimeJobUpdate.status === 'completed' && (realtimeJobUpdate.id === currentJobId || !currentJobId)) {
+            if (realtimeJobUpdate.status === 'completed') {
                 const fetchAsset = async () => {
                     const supabase = getSupabaseClient();
                     const { data: asset } = await (supabase
@@ -203,20 +226,25 @@ export default function GenerateVideoPage() {
 
                     if (asset?.file_path) {
                         setGeneratedImage(asset.file_path);
-                        setIsGenerating(false);
-                        setProgress(100);
-                        setStatusMessage("Production Complete!");
-                        setRefreshKey(prev => prev + 1);
                     }
+
+                    setIsGenerating(false);
+                    setProgress(100);
+                    setStatusMessage("Production Complete!");
+                    setRefreshKey(prev => prev + 1);
+                    setCurrentJobId(null);
                 };
                 fetchAsset();
             } else if (realtimeJobUpdate.status === 'failed') {
                 setIsGenerating(false);
                 setProgress(0);
+                setCurrentJobId(null);
                 alert(`Production Failed: ${realtimeJobUpdate.error_message || 'Unknown error'}`);
+            } else if (realtimeJobUpdate.current_node) {
+                setStatusMessage(`Synthesis: ${realtimeJobUpdate.current_node} (${realtimeJobUpdate.progress}%)`);
             }
         }
-    }, [realtimeJobUpdate, isGenerating]);
+    }, [realtimeJobUpdate, isGenerating, currentJobId]);
 
     useEffect(() => {
         if (lastMessage) {
@@ -809,6 +837,29 @@ export default function GenerateVideoPage() {
                             </>
                         )}
                     </button>
+
+                    {isGenerating && (
+                        <button
+                            onClick={handleResetUI}
+                            style={{
+                                width: '100%',
+                                marginTop: '1rem',
+                                padding: '0.625rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(168, 85, 247, 0.2)',
+                                borderRadius: '0.75rem',
+                                color: '#a78bfa',
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.08)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+                        >
+                            Stop & Reset Production UI
+                        </button>
+                    )}
 
                     <p style={{ fontSize: '0.8125rem', textAlign: 'center', color: '#a78bfa', marginTop: '1.25rem' }}>
                         Each Hollywood-grade render uses **5 studio credits**

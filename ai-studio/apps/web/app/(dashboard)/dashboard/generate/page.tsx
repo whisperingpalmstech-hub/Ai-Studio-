@@ -106,12 +106,17 @@ export default function GeneratePage() {
 
         const recoverJob = async () => {
             const supabase = getSupabaseClient();
-            console.log("🔍 Checking for active jobs to recover...");
+            console.log("🔍 Checking for recent active jobs to recover...");
+
+            // Only recover jobs from the last 15 minutes
+            const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
             const { data: latestJob } = await (supabase
                 .from('jobs') as any)
                 .select('*')
                 .eq('user_id', userId)
                 .in('status', ['pending', 'processing', 'queued'])
+                .gt('created_at', fifteenMinutesAgo)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -124,11 +129,25 @@ export default function GeneratePage() {
                 if (!prompt && latestJob.params?.prompt) {
                     setPrompt(latestJob.params.prompt);
                 }
+            } else {
+                // If no active job found, ensure we are not in generating state
+                setIsGenerating(false);
+                setCurrentJobId(null);
             }
         };
 
         recoverJob();
     }, [userId]);
+
+    const handleResetUI = () => {
+        setIsGenerating(false);
+        setCurrentJobId(null);
+        setProgress(0);
+        setStatusMessage("");
+        if (currentJobId) {
+            localStorage.removeItem(`job_start_${currentJobId}`);
+        }
+    };
 
     // Polling fallback - Simplified since recovery moved up
     useEffect(() => {
@@ -1007,6 +1026,26 @@ export default function GeneratePage() {
                             </>
                         )}
                     </button>
+
+                    {isGenerating && (
+                        <button
+                            onClick={handleResetUI}
+                            style={{
+                                width: '100%',
+                                marginTop: '0.75rem',
+                                padding: '0.5rem',
+                                background: 'transparent',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '0.5rem',
+                                color: '#9ca3af',
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Stop & Reset UI
+                        </button>
+                    )}
 
                     <p style={{ fontSize: '0.75rem', textAlign: 'center', color: '#9ca3af' }}>
                         This will use 1 credit • You have {credits} credits remaining
