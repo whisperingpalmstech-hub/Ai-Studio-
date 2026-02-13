@@ -222,6 +222,28 @@ PromptNode.displayName = 'PromptNode';
 
 export const SamplerNode = memo(({ id, data }: any) => {
     const updateData = useUpdateNodeData(id);
+
+    // Local state for smooth slider dragging (prevents "snapping back" if store is busy)
+    const [localSteps, setLocalSteps] = useState(data.steps || 20);
+    const [localCFG, setLocalCFG] = useState(data.cfg || 7.5);
+    const [localDenoise, setLocalDenoise] = useState(data.denoise ?? 1.0);
+
+    // Sync local state when external data changes (e.g. template loaded or progress)
+    // We use a ref to track if the user is currently interacting to avoid jumping
+    const isInteracting = useRef(false);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalSteps(data.steps || 20);
+    }, [data.steps]);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalCFG(data.cfg || 7.5);
+    }, [data.cfg]);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalDenoise(data.denoise ?? 1.0);
+    }, [data.denoise]);
+
     return (
         <div style={getNodeStyle(data)}>
             <NodeHeader label={data.label || "KSampler"} color="#ef4444" icon={Settings} />
@@ -246,34 +268,52 @@ export const SamplerNode = memo(({ id, data }: any) => {
                     </div>
 
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>Steps ({data.steps || 20})</label>
+                        <label style={styles.label}>Steps ({localSteps})</label>
                         <input
                             type="range"
                             min={1} max={100}
-                            value={data.steps || 20}
-                            onChange={(e) => updateData('steps', parseInt(e.target.value))}
+                            value={localSteps}
+                            onMouseDown={() => { isInteracting.current = true; }}
+                            onMouseUp={() => { isInteracting.current = false; }}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                setLocalSteps(val);
+                                updateData('steps', val);
+                            }}
                             style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
                         />
                     </div>
 
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>CFG ({data.cfg || 7.5})</label>
+                        <label style={styles.label}>CFG ({localCFG})</label>
                         <input
                             type="range"
                             min={1} max={30} step={0.5}
-                            value={data.cfg || 7.5}
-                            onChange={(e) => updateData('cfg', parseFloat(e.target.value))}
+                            value={localCFG}
+                            onMouseDown={() => { isInteracting.current = true; }}
+                            onMouseUp={() => { isInteracting.current = false; }}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setLocalCFG(val);
+                                updateData('cfg', val);
+                            }}
                             style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
                         />
                     </div>
 
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>Denoise ({data.denoise ?? 1.0})</label>
+                        <label style={styles.label}>Denoise ({localDenoise})</label>
                         <input
                             type="range"
                             min={0} max={1} step={0.01}
-                            value={data.denoise ?? 1.0}
-                            onChange={(e) => updateData('denoise', parseFloat(e.target.value))}
+                            value={localDenoise}
+                            onMouseDown={() => { isInteracting.current = true; }}
+                            onMouseUp={() => { isInteracting.current = false; }}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setLocalDenoise(val);
+                                updateData('denoise', val);
+                            }}
                             style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
                         />
                     </div>
@@ -374,6 +414,20 @@ OutputNode.displayName = 'OutputNode';
 
 export const LoRANode = memo(({ id, data }: any) => {
     const updateData = useUpdateNodeData(id);
+
+    // Local state for smooth slider dragging
+    const [localStrengthModel, setLocalStrengthModel] = useState(data.strength_model || 1.0);
+    const [localStrengthClip, setLocalStrengthClip] = useState(data.strength_clip || 1.0);
+    const isInteracting = useRef(false);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalStrengthModel(data.strength_model || 1.0);
+    }, [data.strength_model]);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalStrengthClip(data.strength_clip || 1.0);
+    }, [data.strength_clip]);
+
     return (
         <div style={getNodeStyle(data)}>
             <NodeHeader label="Load LoRA" color="#fbbf24" icon={Zap} />
@@ -402,21 +456,35 @@ export const LoRANode = memo(({ id, data }: any) => {
                     </select>
                 </div>
                 <div style={styles.inputGroup}>
-                    <label style={styles.label}>Strength Model</label>
+                    <label style={styles.label}>Strength Model ({localStrengthModel})</label>
                     <input
-                        type="number"
-                        defaultValue={data.strength_model || 1.0}
-                        onChange={(e) => updateData('strength_model', parseFloat(e.target.value))}
-                        style={styles.input}
+                        type="range"
+                        min={0} max={2} step={0.05}
+                        value={localStrengthModel}
+                        onMouseDown={() => { isInteracting.current = true; }}
+                        onMouseUp={() => { isInteracting.current = false; }}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setLocalStrengthModel(val);
+                            updateData('strength_model', val);
+                        }}
+                        style={{ width: '100%', accentColor: '#fbbf24', height: '4px' }}
                     />
                 </div>
                 <div style={styles.inputGroup}>
-                    <label style={styles.label}>Strength Clip</label>
+                    <label style={styles.label}>Strength Clip ({localStrengthClip})</label>
                     <input
-                        type="number"
-                        defaultValue={data.strength_clip || 1.0}
-                        onChange={(e) => updateData('strength_clip', parseFloat(e.target.value))}
-                        style={styles.input}
+                        type="range"
+                        min={0} max={2} step={0.05}
+                        value={localStrengthClip}
+                        onMouseDown={() => { isInteracting.current = true; }}
+                        onMouseUp={() => { isInteracting.current = false; }}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setLocalStrengthClip(val);
+                            updateData('strength_clip', val);
+                        }}
+                        style={{ width: '100%', accentColor: '#fbbf24', height: '4px' }}
                     />
                 </div>
 
@@ -795,6 +863,15 @@ LoadImageNode.displayName = 'LoadImageNode';
 
 export const ControlNetNode = memo(({ id, data }: any) => {
     const updateData = useUpdateNodeData(id);
+
+    // Local state for smooth slider dragging
+    const [localStrength, setLocalStrength] = useState(data.strength || 1.0);
+    const isInteracting = useRef(false);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalStrength(data.strength || 1.0);
+    }, [data.strength]);
+
     return (
         <div style={getNodeStyle(data)}>
             <NodeHeader label="Apply ControlNet" color="#10b981" icon={Activity} />
@@ -823,12 +900,18 @@ export const ControlNetNode = memo(({ id, data }: any) => {
                     </select>
                 </div>
                 <div style={styles.inputGroup}>
-                    <label style={styles.label}>Strength</label>
+                    <label style={styles.label}>Strength ({localStrength})</label>
                     <input
                         type="range"
                         min={0} max={2} step={0.05}
-                        defaultValue={data.strength || 1.0}
-                        onChange={(e) => updateData('strength', parseFloat(e.target.value))}
+                        value={localStrength}
+                        onMouseDown={() => { isInteracting.current = true; }}
+                        onMouseUp={() => { isInteracting.current = false; }}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setLocalStrength(val);
+                            updateData('strength', val);
+                        }}
                         style={{ width: '100%', accentColor: '#10b981', height: '4px' }}
                     />
                 </div>
@@ -1065,13 +1148,34 @@ LatentUpscaleNode.displayName = 'LatentUpscaleNode';
 
 export const ConditioningAverageNode = memo(({ id, data }: any) => {
     const updateData = useUpdateNodeData(id);
+
+    // Local state for smooth slider dragging
+    const [localStrength, setLocalStrength] = useState(data.strength || 0.5);
+    const isInteracting = useRef(false);
+
+    useEffect(() => {
+        if (!isInteracting.current) setLocalStrength(data.strength || 0.5);
+    }, [data.strength]);
+
     return (
         <div style={getNodeStyle(data)}>
             <NodeHeader label="Conditioning Average" color="#a855f7" icon={Activity} />
             <div style={styles.body}>
                 <div style={styles.inputGroup}>
-                    <label style={styles.label}>Strength</label>
-                    <input type="range" min={0} max={1} step={0.01} defaultValue={data.strength || 0.5} onChange={(e) => updateData('strength', parseFloat(e.target.value))} style={{ width: '100%', accentColor: '#a855f7' }} />
+                    <label style={styles.label}>Strength ({localStrength})</label>
+                    <input
+                        type="range"
+                        min={0} max={1} step={0.01}
+                        value={localStrength}
+                        onMouseDown={() => { isInteracting.current = true; }}
+                        onMouseUp={() => { isInteracting.current = false; }}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setLocalStrength(val);
+                            updateData('strength', val);
+                        }}
+                        style={{ width: '100%', accentColor: '#a855f7', height: '4px' }}
+                    />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
