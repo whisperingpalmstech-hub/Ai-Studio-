@@ -44,7 +44,9 @@ export async function POST(request: Request) {
             video_frames,
             fps,
             image_url: body.image,
+            image: body.image,       // Pass raw base64 for worker fallback
             mask_url: body.mask,
+            mask: body.mask,         // Pass raw base64 for worker fallback
             image_filename: body.image_filename,
             mask_filename: body.mask_filename,
             denoising_strength: body.denoising_strength,

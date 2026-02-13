@@ -604,9 +604,14 @@ async function processJob(job: any) {
         // Handle Mask for Inpainting
         if (job.type === "inpaint") {
             if (!maskFilename) {
-                if (job.params.mask && typeof job.params.mask === 'string' && job.params.mask.startsWith("data:image")) {
+                // Check both 'mask' and 'mask_url' — the API route may store base64 under either key
+                const maskBase64 = [job.params.mask, job.params.mask_url]
+                    .find(v => v && typeof v === 'string' && v.startsWith("data:image"));
+
+                if (maskBase64) {
                     maskFilename = `mask_${job.id}.png`;
-                    await uploadImageToComfy(job.params.mask, maskFilename);
+                    console.log(`📡 Mask Legacy Upload: Converting base64 mask to ${maskFilename}`);
+                    await uploadImageToComfy(maskBase64, maskFilename);
                 } else {
                     throw new Error(`Enterprise Integrity Error: Inpaint job requires a mask_filename.`);
                 }
