@@ -67,8 +67,8 @@ import { comfyUIWebSocketService } from "./services/comfyui-ws.js";
 webSocketService.initialize(server);
 comfyUIWebSocketService.initialize();
 
-// Seed models on startup
-import { seedModels } from "./seed-models.js";
-seedModels().catch(err => console.error("Failed to seed models:", err));
+// Initialize Dynamic Model Scanner
+import { modelScannerService } from "./services/model-scanner.js";
+modelScannerService.start();
 
 export default app;

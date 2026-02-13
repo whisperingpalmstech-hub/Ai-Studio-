@@ -14,6 +14,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     let query = supabaseAdmin
         .from("models")
         .select("*", { count: "exact" })
+        .eq("installed", true) // Only show models actually present on disk
         .or(`user_id.eq.${user.id},is_public.eq.true,is_system.eq.true`)
         .order("created_at", { ascending: false })
         .range(Number(offset), Number(offset) + Number(limit) - 1);
