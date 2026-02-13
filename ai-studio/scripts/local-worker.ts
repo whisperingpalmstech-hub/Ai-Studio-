@@ -733,13 +733,27 @@ async function processJob(job: any) {
         // 4. Listen for completion
         let completed = false;
         let outputs = null;
+        let pollingAttempts = 0;
+        const MAX_POLLING_ATTEMPTS = 300; // 5 minutes approx
 
         while (!completed) {
             try {
-                const historyRes = await axios.get(`${COMFYUI_URL}/history/${promptId}`);
-                const history = historyRes.data[promptId];
+                // Try specific history first
+                let historyRes = await axios.get(`${COMFYUI_URL}/history/${promptId}`);
+                let history = historyRes.data[promptId];
 
-                // console.log(`🔍 Polling history for ${promptId}... Status:`, history?.status);
+                // Fallback: Check global history if specific not found (sometimes ComfyUI quirks)
+                if (!history) {
+                    // Only check global every 5 seconds to omit load
+                    if (pollingAttempts % 5 === 0) {
+                        try {
+                            const globalHistoryRes = await axios.get(`${COMFYUI_URL}/history`);
+                            history = globalHistoryRes.data[promptId];
+                        } catch (globalErr) {
+                            // ignore
+                        }
+                    }
+                }
 
                 if (history && history.status && history.status.completed) {
                     completed = true;
@@ -750,10 +764,20 @@ async function processJob(job: any) {
                     ws.close();
                     throw new Error("ComfyUI Execution Error: " + JSON.stringify(history.status.messages));
                 } else {
+                    pollingAttempts++;
+                    if (pollingAttempts > MAX_POLLING_ATTEMPTS) {
+                        ws.close();
+                        throw new Error("Job timed out waiting for ComfyUI history. (Execution might have finished but history was not found)");
+                    }
+
+                    if (pollingAttempts % 10 === 0) {
+                        console.log(`⏳ Waiting for history... (${pollingAttempts}/${MAX_POLLING_ATTEMPTS})`);
+                    }
+
                     await new Promise(r => setTimeout(r, 1000));
                 }
-            } catch (e) {
-                // console.log("⚠️ History poll error (retrying):", e.message);
+            } catch (e: any) {
+                console.log("⚠️ History poll error (retrying):", e.message);
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
