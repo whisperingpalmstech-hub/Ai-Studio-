@@ -83,6 +83,28 @@ interface ComfyINode {
     inputs: Record<string, any>;
 }
 
+async function syncWorkflowAssets(nodes: ReactFlowNode[]) {
+    for (const node of nodes) {
+        if (node.type === 'loadImage') {
+            // Handle image base64
+            if (node.data.image && node.data.image.startsWith('data:image')) {
+                const filename = `wf_img_${node.id}_${Date.now()}.png`;
+                console.log(`📡 Workflow Sync: Uploading node ${node.id} image...`);
+                await uploadImageToComfy(node.data.image, filename);
+                node.data.image = filename; // Replace with filename for ComfyUI
+                node.data.filename = filename;
+            }
+            // Handle mask base64
+            if (node.data.mask && node.data.mask.startsWith('data:image')) {
+                const maskFilename = `wf_mask_${node.id}_${Date.now()}.png`;
+                console.log(`📡 Workflow Sync: Uploading node ${node.id} mask...`);
+                await uploadImageToComfy(node.data.mask, maskFilename);
+                node.data.mask_filename = maskFilename; // Store for lookup
+            }
+        }
+    }
+}
+
 function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[]): Record<string, ComfyINode> {
     const comfyWorkflow: Record<string, ComfyINode> = {};
 
@@ -128,11 +150,26 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 class_type = "SaveImage";
                 inputs["filename_prefix"] = "AiStudio_WF";
                 break;
-            case "loadImage":
+            case "loadImage": {
                 class_type = "LoadImage";
                 inputs["image"] = node.data.filename || "example.png";
                 inputs["upload"] = "image";
+
+                // If this node has a mask attached, we can create a virtual node for it
+                if (node.data.mask_filename) {
+                    const maskLoaderId = `${node.id}_mask_loader`;
+                    const maskConverterId = `${node.id}_mask_converter`;
+                    comfyWorkflow[maskLoaderId] = {
+                        class_type: "LoadImage",
+                        inputs: { image: node.data.mask_filename, upload: "image" }
+                    };
+                    comfyWorkflow[maskConverterId] = {
+                        class_type: "ImageToMask",
+                        inputs: { image: [maskLoaderId, 0], channel: "red" }
+                    };
+                }
                 break;
+            }
             case "lora":
                 class_type = "LoraLoader";
                 inputs["lora_name"] = node.data.lora_name || "";
@@ -248,8 +285,15 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 else if (sourceHandle === "negative") outputIndex = 1;
                 else outputIndex = 2;
             } else if (sourceNode?.type === "loadImage") {
-                if (sourceHandle === "mask") outputIndex = 1;
-                else outputIndex = 0;
+                if (sourceHandle === "mask" && sourceNode.data.mask_filename) {
+                    // Redirect to the auxiliary converter node we created in the node loop
+                    targetNode.inputs[inputName] = [`${edge.source}_mask_converter`, 0];
+                    return; // Early return for this edge
+                } else if (sourceHandle === "mask") {
+                    outputIndex = 1;
+                } else {
+                    outputIndex = 0;
+                }
             }
             // Add other index mappings as needed, but default 0 works for most
 
@@ -653,6 +697,7 @@ async function processJob(job: any) {
         } else if (workflow.nodes && workflow.edges) {
             // Enterprise Grade: Convert ReactFlow format back to ComfyUI API format
             console.log(`🔄 Detected ReactFlow data structure. Converting for ComfyUI...`);
+            await syncWorkflowAssets(workflow.nodes);
             workflow = convertReactFlowToComfyUI(workflow.nodes, workflow.edges);
         }
 
