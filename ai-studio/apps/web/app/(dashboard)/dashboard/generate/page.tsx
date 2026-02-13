@@ -1431,22 +1431,30 @@ function ActiveJobsList({ refreshKey }: { refreshKey: number }) {
     const handleCancel = async (jobId: string) => {
         if (!confirm("Cancel/Delete this job?")) return;
         try {
-            await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Unknown error");
+            }
             setJobs(prev => prev.filter(j => j.id !== jobId));
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Failed to cancel job");
+            alert(`Failed to cancel job: ${e.message}`);
         }
     };
 
     const handleClearAll = async () => {
         if (!confirm("Are you sure? This will delete ALL pending and active jobs.")) return;
         try {
-            await fetch(`/api/jobs/all`, { method: 'DELETE' });
+            const res = await fetch(`/api/jobs/all`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Unknown error");
+            }
             setJobs([]);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Failed to clear jobs");
+            alert(`Failed to clear jobs: ${e.message}`);
         }
     };
 
