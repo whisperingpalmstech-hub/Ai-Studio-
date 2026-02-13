@@ -47,12 +47,35 @@ export default function GalleryPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Delete this generation?")) return;
+        if (!confirm("Are you sure you want to delete this generation and its files?")) return;
 
-        const supabase = getSupabaseClient();
-        await supabase.from("assets").delete().eq("id", id);
-        setGenerations(prev => prev.filter(g => g.id !== id));
-        setSelectedImage(null);
+        try {
+            const supabase = getSupabaseClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                alert("Please log in to delete assets.");
+                return;
+            }
+
+            const response = await fetch(`http://localhost:4000/api/v1/assets/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`
+                }
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || "Failed to delete asset");
+            }
+
+            setGenerations(prev => prev.filter(g => g.id !== id));
+            setSelectedImage(null);
+        } catch (error: any) {
+            console.error("Delete error:", error);
+            alert(`Delete failed: ${error.message}`);
+        }
     };
 
     const handleDownload = (imageUrl: string, id: string) => {

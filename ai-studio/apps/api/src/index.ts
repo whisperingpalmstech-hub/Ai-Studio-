@@ -7,6 +7,7 @@ import { jobsRouter } from "./routes/jobs.js";
 import { modelsRouter } from "./routes/models.js";
 import { usersRouter } from "./routes/users.js";
 import { uploadsRouter } from "./routes/uploads.js";
+import { assetsRouter } from "./routes/assets.js";
 import { healthRouter } from "./routes/health.js";
 import { errorHandler } from "./middleware/error.js";
 import { authMiddleware } from "./middleware/auth.js";
@@ -38,6 +39,7 @@ app.use("/api/v1/jobs", authMiddleware, jobsRouter);
 app.use("/api/v1/models", authMiddleware, modelsRouter);
 app.use("/api/v1/users", authMiddleware, usersRouter);
 app.use("/api/v1/uploads", authMiddleware, uploadsRouter);
+app.use("/api/v1/assets", authMiddleware, assetsRouter);
 
 // 404 handler
 app.use((req: any, res: any) => {
