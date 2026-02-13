@@ -89,14 +89,14 @@ export const WORKFLOW_TEMPLATES = [
         description: 'Edit specific parts of an image by masking them. Perfect for fixing details or changing objects.',
         category: 'Repair',
         nodes: [
-            { id: '1', type: 'loadModel', position: { x: 50, y: 50 }, data: { label: 'Load Checkpoint', model: 'realistic-vision-inpaint.safetensors' } },
-            { id: '2', type: 'prompt', position: { x: 400, y: 50 }, data: { label: 'Positive Prompt' } },
-            { id: '3', type: 'prompt', position: { x: 400, y: 250 }, data: { label: 'Negative Prompt' } },
-            { id: '4', type: 'loadImage', position: { x: 50, y: 350 }, data: { label: 'Load Image & Mask' } },
-            { id: '5', type: 'inpaint', position: { x: 400, y: 450 }, data: { label: 'Inpaint VAE' } },
-            { id: '6', type: 'sampler', position: { x: 750, y: 50 }, data: { label: 'KSampler', denoise: 0.7 } },
+            { id: '1', type: 'loadModel', position: { x: 50, y: 50 }, data: { label: 'Inpaint Checkpoint', model: 'realistic-vision-inpaint.safetensors' } },
+            { id: '2', type: 'prompt', position: { x: 400, y: 50 }, data: { label: 'Positive Prompt', prompt: 'a beautiful high quality face' } },
+            { id: '3', type: 'prompt', position: { x: 400, y: 250 }, data: { label: 'Negative Prompt', prompt: 'blurry, low quality' } },
+            { id: '4', type: 'loadImage', position: { x: 50, y: 350 }, data: { label: 'Source Image & Mask' } },
+            { id: '5', type: 'inpaint', position: { x: 400, y: 450 }, data: { label: 'Inpaint Latent Prep' } },
+            { id: '6', type: 'sampler', position: { x: 750, y: 50 }, data: { label: 'Inpaint KSampler', steps: 25, cfg: 7.5, denoise: 0.5, sampler: 'euler_a' } },
             { id: '7', type: 'vaeDecode', position: { x: 1050, y: 50 }, data: { label: 'VAE Decode' } },
-            { id: '8', type: 'output', position: { x: 1350, y: 50 }, data: { label: 'Save Image' } }
+            { id: '8', type: 'output', position: { x: 1350, y: 50 }, data: { label: 'Inpaint Result' } }
         ],
         edges: [
             { id: 'e1-6', source: '1', target: '6', sourceHandle: 'model', targetHandle: 'model' },

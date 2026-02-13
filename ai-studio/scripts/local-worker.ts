@@ -104,7 +104,7 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["seed"] = node.data.seed || Math.floor(Math.random() * 10000000);
                 inputs["steps"] = node.data.steps || 20;
                 inputs["cfg"] = node.data.cfg || 8.0;
-                inputs["sampler_name"] = node.data.sampler || "euler";
+                inputs["sampler_name"] = node.data.sampler || node.data.sampler_name || "euler";
                 inputs["scheduler"] = node.data.scheduler || "normal";
                 inputs["denoise"] = node.data.denoise ?? 1.0;
                 break;
@@ -119,6 +119,10 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 break;
             case "vaeDecode":
                 class_type = "VAEDecode";
+                break;
+            case "inpaint":
+                class_type = "VAEEncodeForInpaint";
+                inputs["grow_mask_by"] = 6;
                 break;
             case "output":
                 class_type = "SaveImage";

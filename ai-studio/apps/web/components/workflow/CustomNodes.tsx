@@ -232,10 +232,16 @@ export const SamplerNode = memo(({ id, data }: any) => {
                         <div style={{ display: 'flex', gap: '4px' }}>
                             <input
                                 type="number"
-                                defaultValue={0}
+                                value={data.seed || 0}
+                                onChange={(e) => updateData('seed', parseInt(e.target.value))}
                                 style={styles.input}
                             />
-                            <button style={{ ...styles.input, width: 'auto' }}>🎲</button>
+                            <button
+                                onClick={() => updateData('seed', Math.floor(Math.random() * 1000000000))}
+                                style={{ ...styles.input, width: 'auto', padding: '0 8px' }}
+                            >
+                                🎲
+                            </button>
                         </div>
                     </div>
 
@@ -244,7 +250,7 @@ export const SamplerNode = memo(({ id, data }: any) => {
                         <input
                             type="range"
                             min={1} max={100}
-                            defaultValue={data.steps || 20}
+                            value={data.steps || 20}
                             onChange={(e) => updateData('steps', parseInt(e.target.value))}
                             style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
                         />
@@ -255,18 +261,37 @@ export const SamplerNode = memo(({ id, data }: any) => {
                         <input
                             type="range"
                             min={1} max={30} step={0.5}
-                            defaultValue={data.cfg || 7.5}
+                            value={data.cfg || 7.5}
                             onChange={(e) => updateData('cfg', parseFloat(e.target.value))}
                             style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
                         />
                     </div>
 
                     <div style={styles.inputGroup}>
+                        <label style={styles.label}>Denoise ({data.denoise ?? 1.0})</label>
+                        <input
+                            type="range"
+                            min={0} max={1} step={0.01}
+                            value={data.denoise ?? 1.0}
+                            onChange={(e) => updateData('denoise', parseFloat(e.target.value))}
+                            style={{ width: '100%', accentColor: '#ef4444', height: '4px' }}
+                        />
+                    </div>
+
+                    <div style={styles.inputGroup}>
                         <label style={styles.label}>Sampler Name</label>
-                        <select style={styles.input}>
-                            <option>euler_a</option>
-                            <option>dpmpp_2m</option>
-                            <option>ddim</option>
+                        <select
+                            value={data.sampler || 'euler_a'}
+                            onChange={(e) => updateData('sampler', e.target.value)}
+                            style={styles.input}
+                        >
+                            <option value="euler">euler</option>
+                            <option value="euler_a">euler_a</option>
+                            <option value="dpmpp_2m">dpmpp_2m</option>
+                            <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                            <option value="dpmpp_sde">dpmpp_sde</option>
+                            <option value="ddim">ddim</option>
+                            <option value="uni_pc_bh2">uni_pc_bh2</option>
                         </select>
                     </div>
                 </div>
