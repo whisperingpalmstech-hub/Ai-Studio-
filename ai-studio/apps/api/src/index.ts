@@ -71,4 +71,8 @@ comfyUIWebSocketService.initialize();
 import { modelScannerService } from "./services/model-scanner.js";
 modelScannerService.start();
 
+// Initialize Job Monitor (supabse-to-websocket relay)
+import { jobMonitorService } from "./services/job-monitor.js";
+jobMonitorService.start();
+
 export default app;

@@ -170,9 +170,23 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 class_type = "VAELoader";
                 inputs["vae_name"] = node.data.model || "wan_2.1_vae.safetensors";
                 break;
+            case "clipVision":
+                class_type = "CLIPVisionLoader";
+                inputs["clip_name"] = node.data.model || "clip_vision_h.safetensors";
+                break;
+            case "clipVisionEncode":
+                class_type = "CLIPVisionEncode";
+                inputs["crop"] = "center";
+                break;
+            case "wanI2V":
+                class_type = "WanImageToVideo";
+                inputs["width"] = node.data.width || 832;
+                inputs["height"] = node.data.height || 480;
+                inputs["length"] = node.data.video_frames || 81;
+                break;
             case "wanT2V":
                 class_type = "KSampler";
-                inputs["seed"] = Math.floor(Math.random() * 1000000000);
+                inputs["seed"] = node.data.seed || Math.floor(Math.random() * 10000000);
                 inputs["steps"] = node.data.steps || 30;
                 inputs["cfg"] = node.data.cfg || 6.0;
                 inputs["sampler_name"] = "uni_pc_bh2";
@@ -675,16 +689,11 @@ async function processJob(job: any) {
                     const nodeId = message.data.node;
                     console.log(`🎯 Executing node: ${nodeId}`);
 
-                    let statusLabel = 'Processing';
-                    if (nodeId === '9' || nodeId === 'VHS_VideoCombine') statusLabel = 'Encoding Video';
-                    else if (nodeId === '7' || nodeId === 'KSampler') statusLabel = 'Sampling';
-                    else if (nodeId === '8' || nodeId === 'VAEDecode') statusLabel = 'Decoding';
-                    else if (nodeId === '13' || nodeId === 'WanImageToVideo') statusLabel = 'Analyzing Motion';
-
                     const { error: upError } = await supabase.from('jobs').update({
-                        current_node: statusLabel,
+                        current_node: nodeId, // Store actual ID so frontend can highlight the node
                         status: 'processing'
                     }).eq('id', job.id);
+
                     if (upError) console.error("❌ Supabase Update Error (Node):", upError.message);
                 }
             } catch (e) {
@@ -701,6 +710,9 @@ async function processJob(job: any) {
         let promptId;
         try {
             console.log(`📤 Submitting prompt to ComfyUI...`);
+            console.log("------------------ PROMPT JSON ------------------");
+            console.log(JSON.stringify(workflow, null, 2));
+            console.log("-------------------------------------------------");
             const response = await axios.post(`${COMFYUI_URL}/prompt`, {
                 prompt: workflow,
                 client_id: clientId
@@ -739,11 +751,15 @@ async function processJob(job: any) {
 
         // 5. Process and Upload Outputs
         const assetUrls: string[] = [];
+        const nodeResults: Record<string, { url: string, type: string }[]> = {};
+
         for (const nodeId of Object.keys(outputs)) {
             const nodeOutput = outputs[nodeId];
-
-            // ComfyUI returns videos under 'gifs' or 'images' depending on the node
             const outputFiles = nodeOutput.images || nodeOutput.gifs || nodeOutput.videos || [];
+
+            if (outputFiles.length > 0) {
+                nodeResults[nodeId] = [];
+            }
 
             for (const file of outputFiles) {
                 const isVideo = file.filename.endsWith('.mp4') || file.filename.endsWith('.webm') || file.filename.endsWith('.gif');
@@ -751,7 +767,7 @@ async function processJob(job: any) {
                     (file.filename.endsWith('.mp4') ? 'video/mp4' : (file.filename.endsWith('.webm') ? 'video/webm' : 'image/gif'))
                     : 'image/png';
 
-                console.log(`📥 Fetching output: ${file.filename} (${contentType})`);
+                console.log(`📥 Fetching output for node ${nodeId}: ${file.filename} (${contentType})`);
 
                 const fileRes = await axios.get(`${COMFYUI_URL}/view`, {
                     params: { filename: file.filename, subfolder: file.subfolder, type: file.type },
@@ -769,9 +785,8 @@ async function processJob(job: any) {
 
                 const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(storagePath);
                 assetUrls.push(publicUrl);
+                nodeResults[nodeId].push({ url: publicUrl, type: isVideo ? 'video' : 'image' });
 
-                // Create Asset record - ONLY if it's not an individual frame for a video job
-                // We want to avoid flooding the gallery with 81 private images for one video
                 const isVideoJob = job.type === 't2v' || job.type === 'i2v';
                 const shouldAddToGallery = !isVideoJob || isVideo;
 
@@ -786,8 +801,6 @@ async function processJob(job: any) {
                             prompt: job.params.prompt,
                             created_at: new Date().toISOString()
                         });
-                } else {
-                    console.log(`🖼️ Skipping gallery index for temporary frame: ${file.filename}`);
                 }
             }
         }
@@ -797,6 +810,7 @@ async function processJob(job: any) {
             status: 'completed',
             progress: 100,
             outputs: assetUrls,
+            results: nodeResults, // CRITICAL: This enables live preview in Workflow Editor
             completed_at: new Date().toISOString()
         }).eq('id', job.id);
 
