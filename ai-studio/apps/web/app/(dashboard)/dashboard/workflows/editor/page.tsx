@@ -43,7 +43,12 @@ import {
     VAELoaderNode,
     CLIPVisionEncodeNode,
     WanVideoSamplerNode,
-    WanEmptyLatentNode
+    WanEmptyLatentNode,
+    GroundingDinoLoaderNode,
+    SAMModelLoaderNode,
+    GroundingDinoSAMSegmentNode,
+    MaskRefineNode,
+    InpaintConditioningNode
 } from '@/components/workflow/CustomNodes';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useWebSocket } from '@/lib/useWebSocket';
@@ -75,7 +80,12 @@ const nodeTypes = {
     vaeLoader: VAELoaderNode,
     clipVisionEncode: CLIPVisionEncodeNode,
     wanT2V: WanVideoSamplerNode,
-    wanEmptyLatent: WanEmptyLatentNode
+    wanEmptyLatent: WanEmptyLatentNode,
+    groundingDinoLoader: GroundingDinoLoaderNode,
+    samModelLoader: SAMModelLoaderNode,
+    groundingDinoSAMSegment: GroundingDinoSAMSegmentNode,
+    maskRefine: MaskRefineNode,
+    inpaintConditioning: InpaintConditioningNode
 };
 
 const initialNodes: Node[] = [
@@ -520,6 +530,11 @@ function WorkflowEditorContent() {
         { type: 'svdLoader', label: 'SVD Loader', color: '#f43f5e' },
         { type: 'videoLinearCFG', label: 'Video Linear CFG', color: '#10b981' },
         { type: 'videoCombine', label: 'Video Combine', color: '#22c55e' },
+        { type: 'groundingDinoLoader', label: 'GroundingDINO Loader', color: '#f43f5e' },
+        { type: 'samModelLoader', label: 'SAM Model Loader', color: '#10b981' },
+        { type: 'groundingDinoSAMSegment', label: 'Dino+SAM Auto Mask', color: '#f59e0b' },
+        { type: 'maskRefine', label: 'Mask Refine', color: '#94a3b8' },
+        { type: 'inpaintConditioning', label: 'SDXL Inpaint Cond', color: '#6366f1' },
     ];
 
     const filteredNodeTypes = allNodeTypes.filter(n =>

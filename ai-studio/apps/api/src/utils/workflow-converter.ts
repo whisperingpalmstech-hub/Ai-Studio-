@@ -240,6 +240,32 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
                 class_type = "VAEDecode";
                 break;
 
+            // === Auto-Masking (Segment Anything) ===
+            case "groundingDinoLoader":
+                class_type = "GroundingDinoModelLoader";
+                inputs["model_name"] = node.data.model || "GroundingDINO_SwinT_OGC (694MB)";
+                break;
+            case "samModelLoader":
+                class_type = "SAMModelLoader";
+                inputs["model_name"] = node.data.model || "sam_vit_h (2.56GB)";
+                break;
+            case "groundingDinoSAMSegment":
+                class_type = "GroundingDinoSAMSegment";
+                inputs["prompt"] = node.data.prompt || "";
+                inputs["threshold"] = node.data.threshold || 0.3;
+                break;
+            case "maskRefine": {
+                // We'll create a chain or a single node if available. 
+                // Many versions of ComfyUI have GrowMask/MaskBlur available via extensions.
+                // For now, we'll map to standard nodes or Impact Pack if installed.
+                class_type = "MaskBlur"; // Default to blur
+                inputs["blur"] = node.data.blur || 4;
+                break;
+            }
+            case "inpaintConditioning":
+                class_type = "InpaintModelConditioning";
+                break;
+
             default:
                 console.warn(`Unknown node type: ${node.type}`);
                 class_type = node.type;
@@ -282,6 +308,12 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             "latent": "latent_image",
             "clip": "clip",
             "clip_vision_output": "clip_vision_output",
+            "dino_model": "grounding_dino_model",
+            "sam_model": "sam_model",
+            "mask_in": "mask",
+            "vae_out": "vae",
+            "cond_pos": "positive",
+            "cond_neg": "negative"
         };
 
         if (handleMap[inputName]) {
@@ -350,6 +382,17 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
                 outputIndex = 0; // LATENT (EmptyHunyuanLatentVideo)
             } else if (sourceNodeType === "wanDecode") {
                 outputIndex = 0; // IMAGE
+            } else if (sourceNodeType === "groundingDinoLoader" || sourceNodeType === "samModelLoader") {
+                outputIndex = 0;
+            } else if (sourceNodeType === "groundingDinoSAMSegment") {
+                if (sourceHandle === "image_out") outputIndex = 0;
+                else if (sourceHandle === "mask") outputIndex = 1;
+            } else if (sourceNodeType === "maskRefine") {
+                outputIndex = 0;
+            } else if (sourceNodeType === "inpaintConditioning") {
+                if (sourceHandle === "cond_pos") outputIndex = 0;
+                else if (sourceHandle === "cond_neg") outputIndex = 1;
+                else if (sourceHandle === "latent") outputIndex = 2;
             }
 
             targetNode.inputs[inputName] = [edge.source, outputIndex];

@@ -1600,3 +1600,144 @@ export const WanEmptyLatentNode = memo(({ id, data }: any) => {
 });
 WanEmptyLatentNode.displayName = 'WanEmptyLatentNode';
 
+export const GroundingDinoLoaderNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label="GroundingDINO Loader" color="#f43f5e" icon={Box} />
+            <div style={styles.body}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Model</label>
+                    <select
+                        value={data.model || "GroundingDINO_SwinT_OGC (694MB)"}
+                        onChange={(e) => updateData('model', e.target.value)}
+                        style={styles.input}
+                    >
+                        <option value="GroundingDINO_SwinT_OGC (694MB)">SwinT (Standard)</option>
+                        <option value="GroundingDINO_SwinB (938MB)">SwinB (Large)</option>
+                    </select>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <IOHandle type="source" position={Position.Right} label="DINO_MODEL" color="#f43f5e" id="dino_model" />
+                </div>
+            </div>
+        </div>
+    );
+});
+GroundingDinoLoaderNode.displayName = 'GroundingDinoLoaderNode';
+
+export const SAMModelLoaderNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label="SAM Loader" color="#10b981" icon={Box} />
+            <div style={styles.body}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>SAM Model</label>
+                    <select
+                        value={data.model || "sam_vit_h (2.56GB)"}
+                        onChange={(e) => updateData('model', e.target.value)}
+                        style={styles.input}
+                    >
+                        <option value="sam_vit_h (2.56GB)">ViT-H (Highest Quality)</option>
+                        <option value="sam_vit_l (1.25GB)">ViT-L (Large)</option>
+                        <option value="sam_vit_b (375MB)">ViT-B (Base/Fast)</option>
+                    </select>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <IOHandle type="source" position={Position.Right} label="SAM_MODEL" color="#10b981" id="sam_model" />
+                </div>
+            </div>
+        </div>
+    );
+});
+SAMModelLoaderNode.displayName = 'SAMModelLoaderNode';
+
+export const GroundingDinoSAMSegmentNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label="Auto-Mask (Dino+SAM)" color="#f59e0b" icon={Zap} />
+            <div style={styles.body}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Prompt (Object to mask)</label>
+                    <input
+                        type="text"
+                        defaultValue={data.prompt || ""}
+                        placeholder="e.g. 'the face' or 'clothes'"
+                        onChange={(e) => updateData('prompt', e.target.value)}
+                        style={styles.input}
+                    />
+                </div>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Threshold ({data.threshold || 0.3})</label>
+                    <input
+                        type="range"
+                        min={0} max={1} step={0.01}
+                        defaultValue={data.threshold || 0.3}
+                        onChange={(e) => updateData('threshold', parseFloat(e.target.value))}
+                        style={{ width: '100%', accentColor: '#f59e0b', height: '4px' }}
+                    />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <IOHandle type="target" position={Position.Left} label="IMAGE" id="image" />
+                        <IOHandle type="target" position={Position.Left} label="DINO" id="dino_model" />
+                        <IOHandle type="target" position={Position.Left} label="SAM" id="sam_model" />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
+                        <IOHandle type="source" position={Position.Right} label="MASK" color="#ffffff" id="mask" />
+                        <IOHandle type="source" position={Position.Right} label="IMAGE" color="#fbbf24" id="image_out" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
+GroundingDinoSAMSegmentNode.displayName = 'GroundingDinoSAMSegmentNode';
+
+export const MaskRefineNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label="Mask Refine" color="#94a3b8" icon={Settings} />
+            <div style={styles.body}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Grow ({data.grow || 4}px)</label>
+                    <input type="number" defaultValue={data.grow || 4} onChange={(e) => updateData('grow', parseInt(e.target.value))} style={styles.input} />
+                </div>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Blur ({data.blur || 2}px)</label>
+                    <input type="number" defaultValue={data.blur || 2} onChange={(e) => updateData('blur', parseInt(e.target.value))} style={styles.input} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+                    <IOHandle type="target" position={Position.Left} label="MASK" id="mask_in" />
+                    <IOHandle type="source" position={Position.Right} label="MASK" id="mask_out" />
+                </div>
+            </div>
+        </div>
+    );
+});
+MaskRefineNode.displayName = 'MaskRefineNode';
+
+export const InpaintConditioningNode = memo(({ id, data }: any) => {
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label="SDXL Inpaint Cond" color="#6366f1" icon={Zap} />
+            <div style={styles.body}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+                    <IOHandle type="target" position={Position.Left} label="POS" id="positive" />
+                    <IOHandle type="target" position={Position.Left} label="NEG" id="negative" />
+                    <IOHandle type="target" position={Position.Left} label="VAEMASK" id="vae_out" />
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', margin: '4px 0' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
+                        <IOHandle type="source" position={Position.Right} label="POS" color="#a855f7" id="cond_pos" />
+                        <IOHandle type="source" position={Position.Right} label="NEG" color="#a855f7" id="cond_neg" />
+                        <IOHandle type="source" position={Position.Right} label="LATENT" color="#ec4899" id="latent" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
+InpaintConditioningNode.displayName = 'InpaintConditioningNode';

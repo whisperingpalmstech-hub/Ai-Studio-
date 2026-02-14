@@ -250,5 +250,53 @@ export const WORKFLOW_TEMPLATES = [
             { id: 'e2-8', source: '2', target: '8', sourceHandle: 'vae', targetHandle: 'vae' },
             { id: 'e8-9', source: '8', target: '9', sourceHandle: 'image', targetHandle: 'images' }
         ]
+    },
+    {
+        id: 'tpl-auto-inpaint',
+        name: 'SDXL Auto-Mask Inpaint',
+        description: 'Fully automated object replacement using GroundingDINO & SAM. Just type what you want to mask!',
+        category: 'Advanced',
+        guide: {
+            summary: 'Detects and masks objects automatically using text prompts, then inpaints them.',
+            inputs: 'Input Image, Mask Prompt (what to hide), Inpaint Prompt (what to add).',
+            params: 'Steps (30), CFG (5.5), Denoise (0.55).',
+            tips: 'Be specific with the Mask Prompt (e.g. "red shirt" instead of just "shirt").'
+        },
+        nodes: [
+            { id: '1', type: 'loadModel', position: { x: 50, y: 50 }, data: { label: 'SDXL Inpaint Model', model: 'sd_xl_inpaint_0.1.safetensors' } },
+            { id: '2', type: 'groundingDinoLoader', position: { x: 50, y: 200 }, data: { label: 'DINO Loader' } },
+            { id: '3', type: 'samModelLoader', position: { x: 50, y: 350 }, data: { label: 'SAM Loader' } },
+            { id: '4', type: 'loadImage', position: { x: 400, y: 50 }, data: { label: 'Source Image' } },
+            { id: '5', type: 'groundingDinoSAMSegment', position: { x: 750, y: 50 }, data: { label: 'Auto-Mask (Dino+SAM)', prompt: 'face', threshold: 0.3 } },
+            { id: '6', type: 'maskRefine', position: { x: 1080, y: 50 }, data: { label: 'Refine Mask', grow: 6, blur: 2 } },
+            { id: '7', type: 'prompt', position: { x: 400, y: 250 }, data: { label: 'Inpaint Prompt', prompt: 'a professional headshot' } },
+            { id: '8', type: 'prompt', position: { x: 400, y: 450 }, data: { label: 'Negative Prompt', prompt: 'blurry, low quality, distorted' } },
+            { id: '9', type: 'inpaint', position: { x: 1080, y: 250 }, data: { label: 'VAE Encode (Inpaint)' } },
+            { id: '10', type: 'inpaintConditioning', position: { x: 1380, y: 50 }, data: { label: 'Inpaint Cond' } },
+            { id: '11', type: 'sampler', position: { x: 1700, y: 50 }, data: { label: 'KSampler', steps: 30, cfg: 5.5, denoise: 0.55, sampler: 'dpmpp_2m', scheduler: 'karras' } },
+            { id: '12', type: 'vaeDecode', position: { x: 2000, y: 50 }, data: { label: 'VAE Decode' } },
+            { id: '13', type: 'output', position: { x: 2300, y: 50 }, data: { label: 'Final Result' } }
+        ],
+        edges: [
+            { id: 'e2-5', source: '2', target: '5', sourceHandle: 'dino_model', targetHandle: 'dino_model' },
+            { id: 'e3-5', source: '3', target: '5', sourceHandle: 'sam_model', targetHandle: 'sam_model' },
+            { id: 'e4-5', source: '4', target: '5', sourceHandle: 'image', targetHandle: 'image' },
+            { id: 'e5-6', source: '5', target: '6', sourceHandle: 'mask', targetHandle: 'mask_in' },
+            { id: 'e1-9v', source: '1', target: '9', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e4-9p', source: '4', target: '9', sourceHandle: 'image', targetHandle: 'pixels' },
+            { id: 'e6-9m', source: '6', target: '9', sourceHandle: 'mask_out', targetHandle: 'mask' },
+            { id: 'e1-7c', source: '1', target: '7', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e1-8c', source: '1', target: '8', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e7-10p', source: '7', target: '10', sourceHandle: 'conditioning', targetHandle: 'positive' },
+            { id: 'e8-10n', source: '8', target: '10', sourceHandle: 'conditioning', targetHandle: 'negative' },
+            { id: 'e9-10v', source: '9', target: '10', sourceHandle: 'latent', targetHandle: 'vae_out' },
+            { id: 'e1-11m', source: '1', target: '11', sourceHandle: 'model', targetHandle: 'model' },
+            { id: '10-11p', source: '10', target: '11', sourceHandle: 'cond_pos', targetHandle: 'positive' },
+            { id: '10-11n', source: '10', target: '11', sourceHandle: 'cond_neg', targetHandle: 'negative' },
+            { id: '10-11l', source: '10', target: '11', sourceHandle: 'latent', targetHandle: 'latent_in' },
+            { id: 'e11-12s', source: '11', target: '12', sourceHandle: 'latent_out', targetHandle: 'samples' },
+            { id: 'e1-12v', source: '1', target: '12', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e12-13i', source: '12', target: '13', sourceHandle: 'image', targetHandle: 'images' }
+        ]
     }
 ];
