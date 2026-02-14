@@ -278,7 +278,9 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
             }
             case "inpaintConditioning":
                 class_type = "InpaintModelConditioning";
-                inputs["noise_mask"] = node.data.noise_mask !== false;
+                // InpaintModelConditioning does NOT have a noise_mask parameter.
+                // It takes: positive, negative, vae, pixels, mask (all linked)
+                // It outputs: positive (0), negative (1), latent (2)
                 break;
 
             default:
@@ -313,8 +315,13 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
         };
         if (handleMap[inputName]) inputName = handleMap[inputName];
 
-        // Node-specific input name overrides
-        if (targetNode.class_type === "InpaintModelConditioning" && inputName === "image") inputName = "pixels";
+        // Node-specific input name overrides: convert 'image' handle to 'pixels' only for nodes that need it
+        if (inputName === "image") {
+            const pixelNodes = ["InpaintModelConditioning", "VAEEncodeForInpaint", "VAEEncode"];
+            if (pixelNodes.includes(targetNode.class_type)) {
+                inputName = "pixels";
+            }
+        }
         if (targetNode.class_type === "InpaintModelConditioning" && inputName === "mask_in") inputName = "mask";
         if (targetNode.class_type === "VAEDecode" && inputName === "latent") inputName = "samples";
 
@@ -359,8 +366,32 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
             // Add other index mappings as needed, but default 0 works for most
 
             targetNode.inputs[inputName] = [edge.source, outputIndex];
+
+            // Debug: log InpaintModelConditioning and KSampler edge wiring
+            if (targetNode.class_type === "InpaintModelConditioning" || targetNode.class_type === "KSampler") {
+                console.log(`🔗 Edge Wiring: ${edge.source}(${sourceNode?.type})[${sourceHandle}] → ${targetId}(${targetNode.class_type})[${inputName}] = [${edge.source}, ${outputIndex}]`);
+            }
         }
     });
+
+    // Final verification: log InpaintModelConditioning inputs if present
+    for (const [nodeId, node] of Object.entries(comfyWorkflow)) {
+        if (node.class_type === "InpaintModelConditioning") {
+            console.log(`\n✅ InpaintModelConditioning [${nodeId}] final inputs:`);
+            console.log(`   positive: ${JSON.stringify(node.inputs.positive)}`);
+            console.log(`   negative: ${JSON.stringify(node.inputs.negative)}`);
+            console.log(`   vae: ${JSON.stringify(node.inputs.vae)}`);
+            console.log(`   pixels: ${JSON.stringify(node.inputs.pixels)}`);
+            console.log(`   mask: ${JSON.stringify(node.inputs.mask)}`);
+        }
+        if (node.class_type === "KSampler") {
+            console.log(`\n✅ KSampler [${nodeId}] final inputs:`);
+            console.log(`   model: ${JSON.stringify(node.inputs.model)}`);
+            console.log(`   positive: ${JSON.stringify(node.inputs.positive)}`);
+            console.log(`   negative: ${JSON.stringify(node.inputs.negative)}`);
+            console.log(`   latent_image: ${JSON.stringify(node.inputs.latent_image)}`);
+        }
+    }
 
     return comfyWorkflow;
 }

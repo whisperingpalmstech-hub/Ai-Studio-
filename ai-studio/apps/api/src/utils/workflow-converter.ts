@@ -272,7 +272,9 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             }
             case "inpaintConditioning":
                 class_type = "InpaintModelConditioning";
-                inputs["noise_mask"] = node.data.noise_mask !== false;
+                // InpaintModelConditioning does NOT have a noise_mask parameter.
+                // It takes: positive, negative, vae, pixels, mask (all linked)
+                // It outputs: positive (0), negative (1), latent (2)
                 break;
 
             default:
@@ -306,7 +308,6 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             "model_in": "model",
             "conditioning_in": "conditioning",
             "image_in": "pixels",
-            "image": "pixels",
             "pixels": "pixels",
             "vae_in": "vae",
             "samples": "samples",
@@ -321,8 +322,13 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             inputName = handleMap[inputName];
         }
 
-        // Node-specific overrides
-        if (targetNode.class_type === "InpaintModelConditioning" && inputName === "image") inputName = "pixels";
+        // Node-specific overrides: convert 'image' handle to 'pixels' only for nodes that need it
+        if (inputName === "image") {
+            const pixelNodes = ["InpaintModelConditioning", "VAEEncodeForInpaint", "VAEEncode"];
+            if (pixelNodes.includes(targetNode.class_type)) {
+                inputName = "pixels";
+            }
+        }
         if (targetNode.class_type === "InpaintModelConditioning" && inputName === "mask_in") inputName = "mask";
 
         // Specific override for VAE Decode which might use 'latents' or 'samples'
