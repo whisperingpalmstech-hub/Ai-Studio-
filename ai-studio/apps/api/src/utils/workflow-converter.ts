@@ -255,8 +255,9 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
                 inputs["threshold"] = node.data.threshold || 0.3;
                 break;
             case "maskRefine": {
-                class_type = "MaskBlur";
-                inputs["blur"] = node.data.blur || 4;
+                class_type = "ImpactGaussianBlurMask";
+                inputs["blur_radius"] = node.data.blur || 4;
+                inputs["sigma"] = 1.0;
                 break;
             }
             case "inpaintConditioning":
@@ -288,9 +289,9 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             "image_in": "image",
             "image": "image",
             "pixels": "pixels",
-            "vae": "vae",
+            "vae_in": "vae", // Changed from "vae" to "vae_in"
             "samples": "samples",
-            "mask": "mask",
+            "mask_in": "mask", // Changed from "mask" to "mask_in"
             "face": "face_image",
             "clip_vision": "clip_vision",
             "init_image": "init_image",
@@ -307,7 +308,6 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             "clip_vision_output": "clip_vision_output",
             "dino_model": "grounding_dino_model",
             "sam_model": "sam_model",
-            "mask_in": "mask",
             "vae_out": "vae",
             "cond_pos": "positive",
             "cond_neg": "negative"

@@ -112,6 +112,8 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
         let class_type = "";
         let inputs: Record<string, any> = {};
 
+        console.log(`Node mapping: [${node.id}] type=${node.type}`);
+
         switch (node.type) {
             case "loadModel":
                 class_type = "CheckpointLoaderSimple";
@@ -259,9 +261,10 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["threshold"] = node.data.threshold || 0.3;
                 break;
             case "maskRefine":
-                class_type = "MaskBlur"; // Impact Pack
-                inputs["blur"] = node.data.blur || 4;
-                inputs["falloff"] = 1;
+                class_type = "ImpactGaussianBlurMask";
+                inputs["mask"] = undefined; // handled by edges
+                inputs["blur_radius"] = node.data.blur || 4;
+                inputs["sigma"] = 1.0;
                 break;
             case "inpaintConditioning":
                 class_type = "InpaintModelConditioning";
