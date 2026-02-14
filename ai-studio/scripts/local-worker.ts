@@ -268,6 +268,7 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 break;
             case "inpaintConditioning":
                 class_type = "InpaintModelConditioning";
+                inputs["noise_mask"] = node.data.noise_mask !== false;
                 break;
 
             default:
@@ -291,7 +292,7 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
             "positive": "positive", "negative": "negative", "latent": "latent_image",
             "clip": "clip", "vae_in": "vae",
             "dino_model": "grounding_dino_model", "sam_model": "sam_model",
-            "mask_in": "mask", "vae_out": "vae"
+            "mask_in": "mask", "vae_out": "vae", "image": "pixels"
         };
         if (handleMap[inputName]) inputName = handleMap[inputName];
         if (targetNode.class_type === "VAEDecode" && inputName === "latent") inputName = "samples";

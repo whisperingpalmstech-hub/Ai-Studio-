@@ -1721,20 +1721,35 @@ export const MaskRefineNode = memo(({ id, data }: any) => {
 MaskRefineNode.displayName = 'MaskRefineNode';
 
 export const InpaintConditioningNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
     return (
         <div style={getNodeStyle(data)}>
             <NodeHeader label="SDXL Inpaint Cond" color="#6366f1" icon={Zap} />
             <div style={styles.body}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <IOHandle type="target" position={Position.Left} label="POS" id="positive" />
                     <IOHandle type="target" position={Position.Left} label="NEG" id="negative" />
-                    <IOHandle type="target" position={Position.Left} label="VAEMASK" id="vae_out" />
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', margin: '4px 0' }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
-                        <IOHandle type="source" position={Position.Right} label="POS" color="#a855f7" id="cond_pos" />
-                        <IOHandle type="source" position={Position.Right} label="NEG" color="#a855f7" id="cond_neg" />
-                        <IOHandle type="source" position={Position.Right} label="LATENT" color="#ec4899" id="latent" />
-                    </div>
+                    <IOHandle type="target" position={Position.Left} label="VAE" id="vae" />
+                    <IOHandle type="target" position={Position.Left} label="PIXELS" id="image" />
+                    <IOHandle type="target" position={Position.Left} label="MASK" id="mask" />
+                </div>
+
+                <div style={styles.inputGroup}>
+                    <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            type="checkbox"
+                            defaultChecked={data.noise_mask !== false}
+                            onChange={(e) => updateData('noise_mask', e.target.checked)}
+                        />
+                        Apply Noise Mask
+                    </label>
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', margin: '4px 0' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
+                    <IOHandle type="source" position={Position.Right} label="POS" color="#a855f7" id="cond_pos" />
+                    <IOHandle type="source" position={Position.Right} label="NEG" color="#a855f7" id="cond_neg" />
+                    <IOHandle type="source" position={Position.Right} label="LATENT" color="#ec4899" id="latent" />
                 </div>
             </div>
         </div>

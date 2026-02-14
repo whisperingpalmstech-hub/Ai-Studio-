@@ -262,6 +262,7 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             }
             case "inpaintConditioning":
                 class_type = "InpaintModelConditioning";
+                inputs["noise_mask"] = node.data.noise_mask !== false;
                 break;
 
             default:
@@ -286,31 +287,16 @@ export function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFl
             "clip_in": "clip",
             "model_in": "model",
             "conditioning_in": "conditioning",
-            "image_in": "image",
-            "image": "image",
+            "image_in": "pixels",
+            "image": "pixels",
             "pixels": "pixels",
-            "vae_in": "vae", // Changed from "vae" to "vae_in"
+            "vae_in": "vae",
             "samples": "samples",
-            "mask_in": "mask", // Changed from "mask" to "mask_in"
-            "face": "face_image",
-            "clip_vision": "clip_vision",
-            "init_image": "init_image",
-            "images": "images",
-            "start_image": "start_image",
-            "t5": "clip",
-            "image_embeds": "clip_vision_output",
-            "text_embeds": "conditioning",
-            "model": "model",
-            "positive": "positive",
-            "negative": "negative",
-            "latent": "latent_image",
-            "clip": "clip",
-            "clip_vision_output": "clip_vision_output",
-            "dino_model": "grounding_dino_model",
-            "sam_model": "sam_model",
+            "mask_in": "mask",
             "vae_out": "vae",
             "cond_pos": "positive",
-            "cond_neg": "negative"
+            "cond_neg": "negative",
+            "noise_mask": "noise_mask"
         };
 
         if (handleMap[inputName]) {
