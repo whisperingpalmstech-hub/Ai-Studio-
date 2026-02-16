@@ -63,6 +63,23 @@ const workflowSchema = z.object({
     prompt: z.string().optional(), // Metadata
 });
 
+// Auto-inpaint: uses GroundingDINO + SAM for automatic mask generation
+const autoInpaintSchema = z.object({
+    prompt: z.string().min(1).max(2000),
+    negative_prompt: z.string().max(2000).optional().default(""),
+    mask_prompt: z.string().min(1).max(500), // e.g. "face", "shirt", "background"
+    image_filename: z.string().min(1, "Image is required for auto-inpaint"),
+    denoise: z.number().min(0).max(1).optional().default(0.75),
+    steps: z.number().min(1).max(150).optional().default(20),
+    cfg_scale: z.number().min(1).max(30).optional().default(7),
+    seed: z.number().optional().default(-1),
+    sampler: z.string().optional().default("euler_a"),
+    model_id: z.string().optional(),
+    dino_threshold: z.number().min(0.1).max(1.0).optional().default(0.3),
+    width: z.number().min(128).max(2048).optional().default(512),
+    height: z.number().min(128).max(2048).optional().default(512),
+});
+
 // POST /api/v1/jobs - Create a new generation job
 router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -70,7 +87,7 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
         const { type = "txt2img", ...params } = req.body;
 
         // Validate job type
-        const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale", "workflow", "t2v", "i2v"];
+        const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale", "workflow", "t2v", "i2v", "auto_inpaint"];
         if (!validTypes.includes(type)) {
             throw new BadRequestError(`Invalid job type: ${type}`);
         }
@@ -97,6 +114,9 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
                     break;
                 case "workflow":
                     validatedParams = workflowSchema.parse(params);
+                    break;
+                case "auto_inpaint":
+                    validatedParams = autoInpaintSchema.parse(params);
                     break;
                 default:
                     validatedParams = params;
@@ -135,7 +155,7 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
         }
 
         // Enterprise Grade: Verify image file existence on disk
-        if (["img2img", "inpaint", "upscale", "i2v"].includes(type)) {
+        if (["img2img", "inpaint", "upscale", "i2v", "auto_inpaint"].includes(type)) {
             const filename = (validatedParams as any).image_filename;
             if (!filename) {
                 throw new BadRequestError(`Image is required for job type '${type}'.`);

@@ -199,10 +199,18 @@ export default function GeneratePage() {
 
                 // 3. Handle Completion
                 if (update.status === 'completed') {
-                    const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
+                    // Worker saves outputs as { urls: [...], nodeResults: {...} }
+                    let imageUrl = null;
+                    if (update.outputs) {
+                        if (Array.isArray(update.outputs)) {
+                            imageUrl = update.outputs[0];
+                        } else if (update.outputs.urls && Array.isArray(update.outputs.urls)) {
+                            imageUrl = update.outputs.urls[0];
+                        }
+                    }
 
-                    if (firstOutput && typeof firstOutput === 'string') {
-                        setGeneratedImage(`${firstOutput}?t=${Date.now()}`);
+                    if (imageUrl && typeof imageUrl === 'string') {
+                        setGeneratedImage(`${imageUrl}?t=${Date.now()}`);
                     }
 
                     // Always stop generation state on completed
@@ -270,8 +278,16 @@ export default function GeneratePage() {
             }
 
             if (update.status === 'completed') {
-                const firstOutput = Array.isArray(update.outputs) ? update.outputs[0] : null;
-                if (firstOutput) setGeneratedImage(`${firstOutput}?t=${Date.now()}`);
+                // Worker saves outputs as { urls: [...], nodeResults: {...} }
+                let imageUrl = null;
+                if (update.outputs) {
+                    if (Array.isArray(update.outputs)) {
+                        imageUrl = update.outputs[0];
+                    } else if (update.outputs.urls && Array.isArray(update.outputs.urls)) {
+                        imageUrl = update.outputs.urls[0];
+                    }
+                }
+                if (imageUrl) setGeneratedImage(`${imageUrl}?t=${Date.now()}`);
 
                 setIsGenerating(false);
                 setProgress(100);

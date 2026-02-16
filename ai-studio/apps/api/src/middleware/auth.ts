@@ -112,3 +112,51 @@ export async function optionalAuthMiddleware(
 
     next();
 }
+
+// API Key middleware for external app access
+export async function apiKeyMiddleware(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    const apiKey = req.headers["x-api-key"] as string;
+
+    if (!apiKey || !config.apiKey || apiKey !== config.apiKey) {
+        return res.status(401).json({
+            error: "Unauthorized",
+            message: "Invalid or missing API key. Set x-api-key header.",
+        });
+    }
+
+    // Attach a system user for API key access
+    req.user = {
+        id: "api-system-user",
+        email: "api@system",
+        tier: "pro",
+        credits: 99999,
+    };
+
+    next();
+}
+
+// Flexible auth: accepts either Bearer JWT OR x-api-key
+export async function flexAuthMiddleware(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    // Try API key first
+    const apiKey = req.headers["x-api-key"] as string;
+    if (apiKey && config.apiKey && apiKey === config.apiKey) {
+        req.user = {
+            id: "api-system-user",
+            email: "api@system",
+            tier: "pro",
+            credits: 99999,
+        };
+        return next();
+    }
+
+    // Fall back to Supabase JWT auth
+    return authMiddleware(req, res, next);
+}

@@ -27,6 +27,9 @@ const envSchema = z.object({
 
     // API
     API_URL: z.string().default("http://localhost:4000"),
+
+    // External API Key (for third-party app access)
+    API_KEY: z.string().optional(),
 }).refine(
     (data) => data.SUPABASE_URL || data.NEXT_PUBLIC_SUPABASE_URL,
     { message: "Either SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is required" }
@@ -61,12 +64,14 @@ export const config = {
 
     COMFYUI_URL: parsed.data.COMFYUI_URL,
     apiUrl: parsed.data.API_URL,
+    apiKey: parsed.data.API_KEY || "",
 
     // Credit costs for different operations
     creditCosts: {
         txt2img: 1,
         img2img: 1,
         inpaint: 2,
+        auto_inpaint: 3,
         outpaint: 2,
         upscale: 1,
         t2v: 5,

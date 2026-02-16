@@ -11,7 +11,7 @@ import { assetsRouter } from "./routes/assets.js";
 import { generationsRouter } from "./routes/generations.js";
 import { healthRouter } from "./routes/health.js";
 import { errorHandler } from "./middleware/error.js";
-import { authMiddleware } from "./middleware/auth.js";
+import { authMiddleware, flexAuthMiddleware } from "./middleware/auth.js";
 
 // Load environment variables
 dotenv.config();
@@ -35,12 +35,12 @@ app.use("/outputs", express.static("public"));
 // Health check (no auth required)
 app.use("/health", healthRouter);
 
-// API routes (auth required)
-app.use("/api/v1/jobs", authMiddleware, jobsRouter);
-app.use("/api/v1/models", authMiddleware, modelsRouter);
+// API routes (auth required — flexAuth accepts both JWT and API key)
+app.use("/api/v1/jobs", flexAuthMiddleware, jobsRouter);
+app.use("/api/v1/models", flexAuthMiddleware, modelsRouter);
 app.use("/api/v1/users", authMiddleware, usersRouter);
-app.use("/api/v1/uploads", authMiddleware, uploadsRouter);
-app.use("/api/v1/assets", authMiddleware, assetsRouter);
+app.use("/api/v1/uploads", flexAuthMiddleware, uploadsRouter);
+app.use("/api/v1/assets", flexAuthMiddleware, assetsRouter);
 app.use("/api/v1/generations", authMiddleware, generationsRouter);
 
 // 404 handler

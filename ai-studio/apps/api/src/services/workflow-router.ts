@@ -18,6 +18,8 @@ export class WorkflowRouter {
                 return this.buildImg2Video(params);
             case "inpaint":
                 return this.buildInpaint(params);
+            case "auto_inpaint":
+                return this.buildAutoInpaint(params);
             default:
                 throw new Error(`Unsupported workflow type: ${type}`);
         }
@@ -188,7 +190,104 @@ export class WorkflowRouter {
     }
 
     private static buildInpaint(params: any): Record<string, any> {
-        // Inpaint specific graph
+        // Standard inpaint (with pre-made mask) - stub for now
         return {};
+    }
+
+    static buildAutoInpaint(params: any): Record<string, any> {
+        console.log(`🎭 Building auto-inpaint graph with mask_prompt: "${params.mask_prompt}"`);
+
+        const ID = {
+            CHECKPOINT: "1",
+            PROMPT_POS: "2",
+            PROMPT_NEG: "3",
+            LOAD_IMAGE: "4",
+            DINO_LOADER: "5",
+            SAM_LOADER: "6",
+            DINO_SAM_SEGMENT: "7",
+            DILATE_MASK: "8",
+            BLUR_MASK: "9",
+            VAE_ENCODE_INPAINT: "10",
+            SAMPLER: "11",
+            VAE_DECODE: "12",
+            SAVE_IMAGE: "13"
+        };
+
+        return {
+            [ID.CHECKPOINT]: {
+                class_type: "CheckpointLoaderSimple",
+                inputs: { ckpt_name: params.model_id || "realistic-vision-inpaint.safetensors" }
+            },
+            [ID.PROMPT_POS]: {
+                class_type: "CLIPTextEncode",
+                inputs: { text: params.prompt || "", clip: [ID.CHECKPOINT, 1] }
+            },
+            [ID.PROMPT_NEG]: {
+                class_type: "CLIPTextEncode",
+                inputs: { text: params.negative_prompt || "", clip: [ID.CHECKPOINT, 1] }
+            },
+            [ID.LOAD_IMAGE]: {
+                class_type: "LoadImage",
+                inputs: { image: params.image_filename || "input.png", upload: "image" }
+            },
+            [ID.DINO_LOADER]: {
+                class_type: "GroundingDinoModelLoader (segment anything)",
+                inputs: { model_name: "GroundingDINO_SwinT_OGC (694MB)" }
+            },
+            [ID.SAM_LOADER]: {
+                class_type: "SAMModelLoader (segment anything)",
+                inputs: { model_name: "sam_vit_h (2.56GB)" }
+            },
+            [ID.DINO_SAM_SEGMENT]: {
+                class_type: "GroundingDinoSAMSegment (segment anything)",
+                inputs: {
+                    prompt: params.mask_prompt || "face",
+                    threshold: params.dino_threshold || 0.3,
+                    grounding_dino_model: [ID.DINO_LOADER, 0],
+                    sam_model: [ID.SAM_LOADER, 0],
+                    image: [ID.LOAD_IMAGE, 0]
+                }
+            },
+            [ID.DILATE_MASK]: {
+                class_type: "ImpactDilateMask",
+                inputs: { mask: [ID.DINO_SAM_SEGMENT, 1], dilation: 10 }
+            },
+            [ID.BLUR_MASK]: {
+                class_type: "ImpactGaussianBlurMask",
+                inputs: { mask: [ID.DILATE_MASK, 0], kernel_size: 10, sigma: 5 }
+            },
+            [ID.VAE_ENCODE_INPAINT]: {
+                class_type: "VAEEncodeForInpaint",
+                inputs: {
+                    pixels: [ID.LOAD_IMAGE, 0],
+                    vae: [ID.CHECKPOINT, 2],
+                    mask: [ID.BLUR_MASK, 0],
+                    grow_mask_by: 6
+                }
+            },
+            [ID.SAMPLER]: {
+                class_type: "KSampler",
+                inputs: {
+                    model: [ID.CHECKPOINT, 0],
+                    positive: [ID.PROMPT_POS, 0],
+                    negative: [ID.PROMPT_NEG, 0],
+                    latent_image: [ID.VAE_ENCODE_INPAINT, 0],
+                    seed: Number(params.seed) === -1 ? Math.floor(Math.random() * 1000000) : Number(params.seed),
+                    steps: Number(params.steps) || 20,
+                    cfg: Number(params.cfg_scale) || 7.0,
+                    sampler_name: "euler_ancestral",
+                    scheduler: "normal",
+                    denoise: Number(params.denoise) || 0.75
+                }
+            },
+            [ID.VAE_DECODE]: {
+                class_type: "VAEDecode",
+                inputs: { samples: [ID.SAMPLER, 0], vae: [ID.CHECKPOINT, 2] }
+            },
+            [ID.SAVE_IMAGE]: {
+                class_type: "SaveImage",
+                inputs: { filename_prefix: "AiStudio_AutoInpaint", images: [ID.VAE_DECODE, 0] }
+            }
+        };
     }
 }

@@ -665,6 +665,123 @@ const generateSimpleWorkflow = (params: any) => {
             }
         };
     }
+    // Auto-Inpaint: GroundingDINO + SAM auto-masking
+    else if (type === "auto_inpaint") {
+        console.log(`🎭 Building auto-inpaint workflow with mask_prompt: "${params.mask_prompt}"`);
+
+        const ID_AI = {
+            CHECKPOINT: "1",
+            PROMPT_POS: "2",
+            PROMPT_NEG: "3",
+            LOAD_IMAGE: "4",
+            DINO_LOADER: "5",
+            SAM_LOADER: "6",
+            DINO_SAM_SEGMENT: "7",
+            DILATE_MASK: "8",
+            BLUR_MASK: "9",
+            VAE_ENCODE_INPAINT: "10",
+            SAMPLER: "11",
+            VAE_DECODE: "12",
+            SAVE_IMAGE: "13"
+        };
+
+        const ckptName = params.model_id || "realistic-vision-inpaint.safetensors";
+        const samplerMap: Record<string, string> = {
+            "Euler a": "euler_ancestral",
+            "euler_a": "euler_ancestral",
+            "Euler": "euler",
+            "DPM++ 2M": "dpmpp_2m",
+            "UniPC": "uni_pc"
+        };
+        const comfySampler = samplerMap[params.sampler] || "euler_ancestral";
+
+        workflow[ID_AI.CHECKPOINT] = {
+            class_type: "CheckpointLoaderSimple",
+            inputs: { ckpt_name: ckptName }
+        };
+
+        workflow[ID_AI.PROMPT_POS] = {
+            class_type: "CLIPTextEncode",
+            inputs: { text: params.prompt || "", clip: [ID_AI.CHECKPOINT, 1] }
+        };
+
+        workflow[ID_AI.PROMPT_NEG] = {
+            class_type: "CLIPTextEncode",
+            inputs: { text: params.negative_prompt || "", clip: [ID_AI.CHECKPOINT, 1] }
+        };
+
+        workflow[ID_AI.LOAD_IMAGE] = {
+            class_type: "LoadImage",
+            inputs: { image: params.image_filename || "input.png", upload: "image" }
+        };
+
+        workflow[ID_AI.DINO_LOADER] = {
+            class_type: "GroundingDinoModelLoader (segment anything)",
+            inputs: { model_name: "GroundingDINO_SwinT_OGC (694MB)" }
+        };
+
+        workflow[ID_AI.SAM_LOADER] = {
+            class_type: "SAMModelLoader (segment anything)",
+            inputs: { model_name: "sam_vit_h (2.56GB)" }
+        };
+
+        workflow[ID_AI.DINO_SAM_SEGMENT] = {
+            class_type: "GroundingDinoSAMSegment (segment anything)",
+            inputs: {
+                prompt: params.mask_prompt || "face",
+                threshold: params.dino_threshold || 0.3,
+                grounding_dino_model: [ID_AI.DINO_LOADER, 0],
+                sam_model: [ID_AI.SAM_LOADER, 0],
+                image: [ID_AI.LOAD_IMAGE, 0]
+            }
+        };
+
+        workflow[ID_AI.DILATE_MASK] = {
+            class_type: "ImpactDilateMask",
+            inputs: { mask: [ID_AI.DINO_SAM_SEGMENT, 1], dilation: 10 }
+        };
+
+        workflow[ID_AI.BLUR_MASK] = {
+            class_type: "ImpactGaussianBlurMask",
+            inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 10, sigma: 5 }
+        };
+
+        workflow[ID_AI.VAE_ENCODE_INPAINT] = {
+            class_type: "VAEEncodeForInpaint",
+            inputs: {
+                pixels: [ID_AI.LOAD_IMAGE, 0],
+                vae: [ID_AI.CHECKPOINT, 2],
+                mask: [ID_AI.BLUR_MASK, 0],
+                grow_mask_by: 6
+            }
+        };
+
+        workflow[ID_AI.SAMPLER] = {
+            class_type: "KSampler",
+            inputs: {
+                model: [ID_AI.CHECKPOINT, 0],
+                positive: [ID_AI.PROMPT_POS, 0],
+                negative: [ID_AI.PROMPT_NEG, 0],
+                latent_image: [ID_AI.VAE_ENCODE_INPAINT, 0],
+                seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
+                steps: Number(params.steps) || 20,
+                cfg: Number(params.cfg_scale) || 7.0,
+                sampler_name: comfySampler,
+                scheduler: "normal",
+                denoise: Number(params.denoise) || 0.75
+            }
+        };
+
+        workflow[ID_AI.VAE_DECODE] = {
+            class_type: "VAEDecode",
+            inputs: { samples: [ID_AI.SAMPLER, 0], vae: [ID_AI.CHECKPOINT, 2] }
+        };
+
+        workflow[ID_AI.SAVE_IMAGE] = {
+            class_type: "SaveImage",
+            inputs: { filename_prefix: "AiStudio_AutoInpaint", images: [ID_AI.VAE_DECODE, 0] }
+        };
+    }
 
     console.log("✅ Workflow generation complete. Nodes:", Object.keys(workflow));
     if (type === "img2img") {
