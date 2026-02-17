@@ -115,26 +115,79 @@ export function generateSimpleWorkflow(params: any): Record<string, any> {
             };
             latentNodeId = ID_OLD.VAE_ENCODE;
         } else if (type === "inpaint") {
-            if (!params.image_filename || !params.mask_filename) throw new Error("Image and mask required for inpaint");
+            if (!params.image_filename) throw new Error("Image required for inpaint");
+
             workflow[ID_OLD.LOAD_IMAGE] = {
                 class_type: "LoadImage",
                 inputs: { image: params.image_filename, upload: "image" }
             };
-            workflow[ID_OLD.LOAD_MASK] = {
-                class_type: "LoadImage",
-                inputs: { image: params.mask_filename, upload: "image" }
-            };
-            workflow[ID_OLD.VAE_ENCODE_INPAINT] = {
-                class_type: "VAEEncodeForInpaint",
-                inputs: {
-                    pixels: [ID_OLD.LOAD_IMAGE, 0],
-                    vae: [ID_OLD.CHECKPOINT, 2],
-                    mask: [ID_OLD.LOAD_MASK, 1],
-                    grow_mask_by: 6
-                }
-            };
+
+            if (params.auto_mask) {
+                // AI Auto-Masking Logic (GroundingDINO + SAM)
+                const ID_AUTO = {
+                    DINO_LOADER: "20",
+                    SAM_LOADER: "21",
+                    DINO_SAM_SEGMENT: "22",
+                    DILATE_MASK: "23",
+                    BLUR_MASK: "24"
+                };
+
+                workflow[ID_AUTO.DINO_LOADER] = {
+                    class_type: "GroundingDinoModelLoader (segment anything)",
+                    inputs: { model_name: "GroundingDINO_SwinT_OGC (694MB)" }
+                };
+                workflow[ID_AUTO.SAM_LOADER] = {
+                    class_type: "SAMModelLoader (segment anything)",
+                    inputs: { model_name: "sam_vit_h (2.56GB)" }
+                };
+                workflow[ID_AUTO.DINO_SAM_SEGMENT] = {
+                    class_type: "GroundingDinoSAMSegment (segment anything)",
+                    inputs: {
+                        prompt: params.mask_prompt || "clothes",
+                        threshold: 0.3,
+                        grounding_dino_model: [ID_AUTO.DINO_LOADER, 0],
+                        sam_model: [ID_AUTO.SAM_LOADER, 0],
+                        image: [ID_OLD.LOAD_IMAGE, 0]
+                    }
+                };
+                workflow[ID_AUTO.DILATE_MASK] = {
+                    class_type: "ImpactDilateMask",
+                    inputs: { mask: [ID_AUTO.DINO_SAM_SEGMENT, 1], dilation: 15 }
+                };
+                workflow[ID_AUTO.BLUR_MASK] = {
+                    class_type: "ImpactGaussianBlurMask",
+                    inputs: { mask: [ID_AUTO.DILATE_MASK, 0], kernel_size: 10, sigma: 5 }
+                };
+
+                workflow[ID_OLD.VAE_ENCODE_INPAINT] = {
+                    class_type: "VAEEncodeForInpaint",
+                    inputs: {
+                        pixels: [ID_OLD.LOAD_IMAGE, 0],
+                        vae: [ID_OLD.CHECKPOINT, 2],
+                        mask: [ID_AUTO.BLUR_MASK, 0],
+                        grow_mask_by: 6
+                    }
+                };
+                denoise = params.denoising_strength ?? 0.85;
+            } else {
+                // Legacy Manual Masking
+                if (!params.mask_filename) throw new Error("Mask required for manual inpaint");
+                workflow[ID_OLD.LOAD_MASK] = {
+                    class_type: "LoadImage",
+                    inputs: { image: params.mask_filename, upload: "image" }
+                };
+                workflow[ID_OLD.VAE_ENCODE_INPAINT] = {
+                    class_type: "VAEEncodeForInpaint",
+                    inputs: {
+                        pixels: [ID_OLD.LOAD_IMAGE, 0],
+                        vae: [ID_OLD.CHECKPOINT, 2],
+                        mask: [ID_OLD.LOAD_MASK, 1],
+                        grow_mask_by: 6
+                    }
+                };
+            }
             latentNodeId = ID_OLD.VAE_ENCODE_INPAINT;
-            denoise = params.denoising_strength ?? 0.9;
+            denoise = denoise ?? (params.denoising_strength ?? 0.9);
         }
 
         const SAMPLER_MAP: any = { "euler": "euler", "euler a": "euler_ancestral", "dpm++ 2m": "dpmpp_2m", "ddim": "ddim" };

@@ -107,19 +107,25 @@ async function processJob(job: Job<GenerationJobData>) {
                 }
             }
 
-            if (params.mask_url && typeof params.mask_url === 'string' && params.mask_url.startsWith('data:')) {
+            // Handle Auto-Masking with Grok AI
+            if (type === 'inpaint' && (params as any).auto_mask) {
                 try {
-                    const base64Data = params.mask_url.split(",")[1];
-                    const buffer = Buffer.from(base64Data, 'base64');
-                    const filename = `input_${jobId}_mask.png`;
-                    const uploadedName = await comfyUIService.uploadImage(buffer, filename);
-                    params.mask_filename = uploadedName;
-                    console.log(`Uploaded mask image: ${uploadedName}`);
-                } catch (e) {
-                    console.error("Failed to upload mask:", e);
-                    if (type === 'inpaint') {
-                        throw new Error("Failed to upload mask image");
+                    const grokApiKey = (params as any).grok_api_key || process.env.GROK_API_KEY;
+                    if (!grokApiKey) {
+                        console.warn("⚠️ Grok API Key is missing. Falling back to simple keyword matching or default mask.");
+                        (params as any).mask_prompt = (params as any).prompt.split(" ").slice(0, 3).join(", "); // Minimal fallback
+                    } else {
+                        // Dynamically import GrokService to avoid circular deps or unnecessary loads
+                        const { GrokService } = await import("../services/grok.service.js");
+                        const maskData = await GrokService.parsePrompt((params as any).prompt, grokApiKey);
+
+                        (params as any).mask_prompt = maskData.dino_prompt;
+                        (params as any).grok_data = maskData;
+                        console.log(`✅ Grok Success: Mask prompt set to "${maskData.dino_prompt}"`);
                     }
+                } catch (e) {
+                    console.error("❌ Grok parsing failed, using simple fallback:", e);
+                    (params as any).mask_prompt = "subject, clothes"; // Generic fallback
                 }
             }
 

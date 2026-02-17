@@ -20,7 +20,8 @@ import {
     Trash2,
     Film,
     Layers,
-    Info
+    Info,
+    Brain
 } from "lucide-react";
 
 import { getSupabaseClient } from "../../../../lib/supabase/client";
@@ -30,7 +31,7 @@ import { useJobRealtime } from "../../../../lib/useJobRealtime";
 const MODES = [
     { id: "txt2img", label: "Text to Image", icon: Sparkles, cost: 1 },
     { id: "img2img", label: "Image to Image", icon: ImageIcon, cost: 1 },
-    { id: "inpaint", label: "Inpainting", icon: Brush, cost: 2 },
+    { id: "inpaint", label: "AI Smart Inpaint", icon: Wand2, cost: 2 },
     { id: "upscale", label: "Upscale", icon: Maximize, cost: 1 },
 ];
 
@@ -76,6 +77,7 @@ export default function GeneratePage() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
     const [uploadedMaskFilename, setUploadedMaskFilename] = useState<string | null>(null);
+    const [isAutoMask, setIsAutoMask] = useState(true);
 
     // Persist prompt and basic settings to localStorage
     useEffect(() => {
@@ -458,6 +460,11 @@ export default function GeneratePage() {
         if (!inputImage && (mode === "img2img" || mode === "inpaint" || mode === "upscale" || mode === "i2v")) return;
         if (isUploading) return;
 
+        if (mode === "inpaint" && !isAutoMask && !maskImage) {
+            enterpriseToast.error("Mask Required", "Please upload a mask image or use AI Auto-Mask.");
+            return;
+        }
+
         setIsGenerating(true);
         setGeneratedImage(null);
         setProgress(0);
@@ -466,7 +473,7 @@ export default function GeneratePage() {
             mode === 'img2img' ? 'Analyzing input image...' :
                 mode === 't2v' ? 'Starting video generation...' :
                     mode === 'i2v' ? 'Animating your image...' :
-                        mode === 'inpaint' ? 'Preparing mask region...' : 'Starting engine...';
+                        mode === 'inpaint' ? (isAutoMask ? 'Grok is analyzing prompt...' : 'Preparing mask region...') : 'Starting engine...';
 
         setStatusMessage(initialStatus);
 
@@ -485,9 +492,10 @@ export default function GeneratePage() {
                     scheduler: "K_EULER",
                     seed: seed === -1 ? undefined : seed,
                     image: inputImage,
-                    mask: maskImage,
+                    mask: isAutoMask ? undefined : maskImage,
                     image_filename: uploadedFilename,
-                    mask_filename: uploadedMaskFilename,
+                    mask_filename: isAutoMask ? undefined : uploadedMaskFilename,
+                    auto_mask: mode === "inpaint" ? isAutoMask : false,
                     denoising_strength: denoisingStrength,
                     upscale_factor: upscaleFactor,
                     model_id: selectedModel?.file_path
@@ -848,46 +856,120 @@ export default function GeneratePage() {
                     {/* Mask Upload (for Inpaint) */}
                     {mode === "inpaint" && (
                         <div style={cardStyle}>
-                            <label style={labelStyle}>
-                                <Brush size={16} color="#ec4899" />
-                                Mask Image
-                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                                <label style={{ ...labelStyle, marginBottom: 0 }}>
+                                    <Brain size={18} color="#8b5cf6" />
+                                    Masking Strategy
+                                </label>
+                                <div style={{
+                                    display: 'flex',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '0.5rem',
+                                    padding: '0.25rem'
+                                }}>
+                                    <button
+                                        onClick={() => setIsAutoMask(true)}
+                                        style={{
+                                            padding: '0.375rem 0.75rem',
+                                            borderRadius: '0.375rem',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            background: isAutoMask ? '#8b5cf6' : 'transparent',
+                                            color: isAutoMask ? 'white' : '#9ca3af',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        Auto (Grok AI)
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAutoMask(false)}
+                                        style={{
+                                            padding: '0.375rem 0.75rem',
+                                            borderRadius: '0.375rem',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            background: !isAutoMask ? '#6366f1' : 'transparent',
+                                            color: !isAutoMask ? 'white' : '#9ca3af',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        Manual Upload
+                                    </button>
+                                </div>
+                            </div>
 
-                            <div
-                                onClick={() => maskInputRef.current?.click()}
-                                style={{
-                                    border: '2px dashed rgba(255,255,255,0.1)',
+                            {isAutoMask ? (
+                                <div style={{
+                                    padding: '1.25rem',
                                     borderRadius: '0.75rem',
-                                    padding: '2rem',
+                                    background: 'rgba(139, 92, 246, 0.05)',
+                                    border: '1px solid rgba(139, 92, 246, 0.2)',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '1rem',
-                                    cursor: 'pointer',
-                                    background: maskImage ? 'black' : 'rgba(0,0,0,0.2)',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    minHeight: '200px'
-                                }}
-                            >
-                                {maskImage ? (
-                                    <img src={maskImage} alt="Mask" style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }} />
-                                ) : (
-                                    <>
-                                        <Brush size={32} color="#9ca3af" />
-                                        <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Click to upload mask (white = change)</span>
-                                    </>
-                                )}
-                                <input
-                                    type="file"
-                                    ref={maskInputRef}
-                                    className="hidden"
-                                    accept="image/*"
-                                    onChange={(e) => handleFileUpload(e, "mask")}
-                                    style={{ display: 'none' }}
-                                />
-                            </div>
+                                    gap: '1rem'
+                                }}>
+                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                        <div style={{
+                                            width: '2.5rem',
+                                            height: '2.5rem',
+                                            borderRadius: '0.5rem',
+                                            background: 'rgba(139, 92, 246, 0.1)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <Zap size={20} color="#a78bfa" />
+                                        </div>
+                                        <div>
+                                            <h4 style={{ color: 'white', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>Full Automation Mode</h4>
+                                            <p style={{ color: '#9ca3af', fontSize: '0.75rem', lineHeight: 1.5 }}>
+                                                Grok will analyze your prompt, detect subject regions using GroundingDINO, and auto-generate precise masks. No manual painting required.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    onClick={() => maskInputRef.current?.click()}
+                                    style={{
+                                        border: '2px dashed rgba(255,255,255,0.1)',
+                                        borderRadius: '0.75rem',
+                                        padding: '2rem',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '1rem',
+                                        cursor: 'pointer',
+                                        background: maskImage ? 'black' : 'rgba(0,0,0,0.2)',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        minHeight: '200px'
+                                    }}
+                                >
+                                    {maskImage ? (
+                                        <img src={maskImage} alt="Mask" style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }} />
+                                    ) : (
+                                        <>
+                                            <Brush size={32} color="#9ca3af" />
+                                            <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Click to upload mask (white = change)</span>
+                                        </>
+                                    )}
+                                    <input
+                                        type="file"
+                                        ref={maskInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleFileUpload(e, "mask")}
+                                        style={{ display: 'none' }}
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1404,6 +1486,7 @@ export default function GeneratePage() {
                     )}
                 </div>
             </div>
+
             {/* Recent Generations Section */}
             <div style={{ marginTop: '4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -1427,6 +1510,7 @@ export default function GeneratePage() {
                 <RecentGenerationsGrid refreshKey={refreshKey} />
             </div>
         </div>
+        </div >
     );
 }
 
