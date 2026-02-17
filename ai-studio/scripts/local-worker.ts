@@ -94,9 +94,9 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'vest', 'kurta', 'polo', 'tank top', 'crop top', 'cardigan', 'blazer', 'sweatshirt',
                 'jersey', 'tunic', 'pullover', 'windbreaker', 'parka', 'fleece'],
             dinoParts: ['person', 'clothes'],
-            denoise: 0.65,
+            denoise: 0.45,
             threshold: 0.15,
-            dilation: 20,
+            dilation: 8,
             negatives: 'wrong neckline, mismatched sleeves'
         },
         lower_clothing: {
@@ -104,9 +104,9 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'chinos', 'joggers', 'cargo pants', 'culottes', 'palazzo', 'flares', 'capri',
                 'bermuda', 'sweatpants', 'track pants', 'dhoti'],
             dinoParts: ['person', 'clothes'],
-            denoise: 0.65,
+            denoise: 0.45,
             threshold: 0.15,
-            dilation: 20,
+            dilation: 8,
             negatives: 'wrong leg shape'
         },
         full_clothing: {
@@ -116,9 +116,9 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
             dinoParts: ['clothes', 'clothing', 'garment', 'outfit'],
-            denoise: 0.65,
+            denoise: 0.5,
             threshold: 0.15,
-            dilation: 25,
+            dilation: 10,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing'
         },
         shoes: {
@@ -1015,17 +1015,22 @@ const generateSimpleWorkflow = (params: any) => {
         // === USE SMART ANALYZER to extract DINO prompt from user's natural language ===
         const analysis = analyzeInpaintPrompt(params.prompt || '', params.negative_prompt || '');
         const dinoPrompt = params._dino_prompt_override || analysis.dinoPrompt;
-        const autoDenoise = params.denoising_strength ?? analysis.denoise;
+        // CRITICAL: Always use the smart analyzer's denoise — the frontend slider (0.75)
+        // is way too high for inpainting and WILL regenerate the person's face.
+        // For clothing-only changes, 0.4-0.55 preserves identity while changing textures.
+        const autoDenoise = Math.min(analysis.denoise, 0.5);
         const autoThreshold = analysis.dinoThreshold;
         const autoMaskDilation = analysis.maskDilation;
 
         // Auto-enhance negative prompt
         let enhancedNegative = params.negative_prompt || '';
+        // Always add identity-preservation terms
+        const identityProtection = 'different person, changed identity, changed face, changed skin color, changed body, different ethnicity, wrong skin tone';
         if (!enhancedNegative || enhancedNegative.trim().length < 10) {
-            enhancedNegative = analysis.negativeAdditions;
+            enhancedNegative = identityProtection + ', ' + analysis.negativeAdditions;
         } else {
-            // Append smart additions if user provided some negative
-            enhancedNegative = enhancedNegative + ', ' + analysis.negativeAdditions;
+            // Append smart additions + identity protection
+            enhancedNegative = enhancedNegative + ', ' + identityProtection + ', ' + analysis.negativeAdditions;
         }
 
         console.log(`🎭 Building SMART auto-inpaint workflow:`);
@@ -1119,7 +1124,7 @@ const generateSimpleWorkflow = (params: any) => {
 
         workflow[ID_AI.BLUR_MASK] = {
             class_type: "ImpactGaussianBlurMask",
-            inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 15, sigma: 8 }
+            inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 9, sigma: 4 }
         };
 
         // Use VAEEncode + SetLatentNoiseMask instead of VAEEncodeForInpaint
