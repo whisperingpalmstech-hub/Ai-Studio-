@@ -995,7 +995,8 @@ const generateSimpleWorkflow = (params: any) => {
             DINO_SAM_SEGMENT: "7",
             DILATE_MASK: "8",
             BLUR_MASK: "9",
-            VAE_ENCODE_INPAINT: "10",
+            VAE_ENCODE: "10",
+            SET_LATENT_MASK: "14",
             SAMPLER: "11",
             VAE_DECODE: "12",
             SAVE_IMAGE: "13"
@@ -1068,13 +1069,21 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 15, sigma: 8 }
         };
 
-        workflow[ID_AI.VAE_ENCODE_INPAINT] = {
-            class_type: "VAEEncodeForInpaint",
+        // Use VAEEncode + SetLatentNoiseMask instead of VAEEncodeForInpaint
+        // This avoids the Byte/Float tensor type mismatch with auto-generated masks
+        workflow[ID_AI.VAE_ENCODE] = {
+            class_type: "VAEEncode",
             inputs: {
                 pixels: [ID_AI.LOAD_IMAGE, 0],
-                vae: [ID_AI.CHECKPOINT, 2],
-                mask: [ID_AI.BLUR_MASK, 0],
-                grow_mask_by: 12
+                vae: [ID_AI.CHECKPOINT, 2]
+            }
+        };
+
+        workflow[ID_AI.SET_LATENT_MASK] = {
+            class_type: "SetLatentNoiseMask",
+            inputs: {
+                samples: [ID_AI.VAE_ENCODE, 0],
+                mask: [ID_AI.BLUR_MASK, 0]
             }
         };
 
@@ -1084,7 +1093,7 @@ const generateSimpleWorkflow = (params: any) => {
                 model: [ID_AI.CHECKPOINT, 0],
                 positive: [ID_AI.PROMPT_POS, 0],
                 negative: [ID_AI.PROMPT_NEG, 0],
-                latent_image: [ID_AI.VAE_ENCODE_INPAINT, 0],
+                latent_image: [ID_AI.SET_LATENT_MASK, 0],
                 seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
                 steps: Number(params.steps) || 25,
                 cfg: Number(params.cfg_scale) || 7.5,
