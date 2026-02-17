@@ -1127,14 +1127,21 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 9, sigma: 4 }
         };
 
-        // VAEEncodeForInpaint — proper inpainting node with mask built-in
+        // VAEEncode + SetLatentNoiseMask — handles float masks from SAM correctly
+        // (VAEEncodeForInpaint causes grey ghost with float masks)
         workflow[ID_AI.VAE_ENCODE] = {
-            class_type: "VAEEncodeForInpaint",
+            class_type: "VAEEncode",
             inputs: {
                 pixels: [ID_AI.LOAD_IMAGE, 0],
-                vae: [ID_AI.CHECKPOINT, 2],
-                mask: [ID_AI.BLUR_MASK, 0],
-                grow_mask_by: 0  // Already dilated manually via ImpactDilateMask
+                vae: [ID_AI.CHECKPOINT, 2]
+            }
+        };
+
+        workflow[ID_AI.SET_LATENT_MASK] = {
+            class_type: "SetLatentNoiseMask",
+            inputs: {
+                samples: [ID_AI.VAE_ENCODE, 0],
+                mask: [ID_AI.BLUR_MASK, 0]
             }
         };
 
@@ -1144,7 +1151,7 @@ const generateSimpleWorkflow = (params: any) => {
                 model: [ID_AI.CHECKPOINT, 0],
                 positive: [ID_AI.PROMPT_POS, 0],
                 negative: [ID_AI.PROMPT_NEG, 0],
-                latent_image: [ID_AI.VAE_ENCODE, 0],
+                latent_image: [ID_AI.SET_LATENT_MASK, 0],
                 seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
                 steps: Number(params.steps) || 30,
                 cfg: Number(params.cfg_scale) || 7.0,
