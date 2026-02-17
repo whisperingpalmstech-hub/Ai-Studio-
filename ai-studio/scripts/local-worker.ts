@@ -1140,7 +1140,8 @@ const generateSimpleWorkflow = (params: any) => {
                 negative: [ID_AI.PROMPT_NEG, 0],
                 vae: [ID_AI.CHECKPOINT, 2],
                 pixels: [ID_AI.LOAD_IMAGE, 0],
-                mask: [ID_AI.BLUR_MASK, 0]
+                mask: [ID_AI.BLUR_MASK, 0],
+                noise_mask: true
             }
         };
 
