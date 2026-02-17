@@ -115,8 +115,8 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'casual', 'formal', 'modern', 'ethnic', 'uniform', 'costume', 'apparel',
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
-            dinoParts: ['person', 'clothes', 'dress'],
-            denoise: 0.7,
+            dinoParts: ['clothes', 'clothing', 'garment', 'outfit'],
+            denoise: 0.65,
             threshold: 0.15,
             dilation: 25,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing'
@@ -238,14 +238,21 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
     let allNegatives: string[] = ['bad anatomy, deformed, distorted, disfigured, extra limbs, blurry, artifacts, low quality'];
 
     for (const [regionName, config] of Object.entries(REGIONS)) {
-        const matched = config.keywords.some(k => prompt.includes(k));
-        if (matched) {
+        // Basic match
+        const hasKeyword = config.keywords.some(k => prompt.includes(k));
+
+        // Smart Negative Constraint: "don't change face", "keep original eyes", etc.
+        const isNegated = new RegExp(`(don't|do not|never|avoid|keep|original|don t|prevent)\\s+(?:change|changing|touch|modify|edit)?\\s+(?:the\\s+)?(?:${config.keywords.join('|')})`, 'i').test(prompt);
+
+        if (hasKeyword && !isNegated) {
             matchedRegions.push(regionName);
             allDinoParts.push(...config.dinoParts);
             maxDenoise = Math.max(maxDenoise, config.denoise);
             maxDilation = Math.max(maxDilation, config.dilation);
             minThreshold = Math.min(minThreshold, config.threshold);
             allNegatives.push(config.negatives);
+        } else if (isNegated) {
+            console.log(`🛡️ Negative constraint detected for ${regionName} - protecting region.`);
         }
     }
 
