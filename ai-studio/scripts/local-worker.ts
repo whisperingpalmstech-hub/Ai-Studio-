@@ -93,20 +93,20 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
             keywords: ['shirt', 't-shirt', 'tshirt', 'blouse', 'top', 'sweater', 'hoodie', 'jacket', 'coat',
                 'vest', 'kurta', 'polo', 'tank top', 'crop top', 'cardigan', 'blazer', 'sweatshirt',
                 'jersey', 'tunic', 'pullover', 'windbreaker', 'parka', 'fleece'],
-            dinoParts: ['person', 'clothes'],
-            denoise: 0.45,
-            threshold: 0.15,
-            dilation: 8,
+            dinoParts: ['shirt', 'top', 'upper clothes'],
+            denoise: 0.35,
+            threshold: 0.2,
+            dilation: 6,
             negatives: 'wrong neckline, mismatched sleeves'
         },
         lower_clothing: {
             keywords: ['jeans', 'pants', 'trousers', 'shorts', 'skirt', 'leggings', 'salwar', 'pajama',
                 'chinos', 'joggers', 'cargo pants', 'culottes', 'palazzo', 'flares', 'capri',
                 'bermuda', 'sweatpants', 'track pants', 'dhoti'],
-            dinoParts: ['person', 'clothes'],
-            denoise: 0.45,
-            threshold: 0.15,
-            dilation: 8,
+            dinoParts: ['pants', 'jeans', 'lower clothes'],
+            denoise: 0.35,
+            threshold: 0.2,
+            dilation: 6,
             negatives: 'wrong leg shape'
         },
         full_clothing: {
@@ -115,10 +115,10 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'casual', 'formal', 'modern', 'ethnic', 'uniform', 'costume', 'apparel',
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
-            dinoParts: ['clothes', 'clothing', 'garment', 'outfit'],
-            denoise: 0.5,
-            threshold: 0.15,
-            dilation: 10,
+            dinoParts: ['clothes', 'dress', 'garment'],
+            denoise: 0.40,
+            threshold: 0.2,
+            dilation: 8,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing'
         },
         shoes: {
@@ -207,7 +207,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'bulky', 'lean', 'fit', 'body shape', 'physique', 'body type', 'arms',
                 'biceps', 'abs', 'chest', 'shoulders', 'neck', 'hands', 'fingers',
                 'pregnant', 'belly'],
-            dinoParts: ['person', 'body'],
+            dinoParts: ['body', 'torso'],
             denoise: 0.55,
             threshold: 0.15,
             dilation: 20,
@@ -319,7 +319,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
         if (match && matchedRegions.length === 0) {
             const item = match[1];
             // Try to figure out what region the added item belongs to  
-            allDinoParts.push(item, 'person');
+            allDinoParts.push(item);
             matchedRegions.push('add_item');
             maxDenoise = Math.max(maxDenoise, 0.55);
             maxDilation = Math.max(maxDilation, 15);
@@ -330,11 +330,11 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
 
     // If nothing matched at all → smart fallback
     if (matchedRegions.length === 0) {
-        console.log('⚠️ No specific region detected in prompt, defaulting to person/clothing detection');
-        allDinoParts = ['person', 'clothes'];
-        maxDenoise = 0.6;
-        maxDilation = 22;
-        minThreshold = 0.15;
+        console.log('⚠️ No specific region detected in prompt, defaulting to clothing detection');
+        allDinoParts = ['clothes', 'garment', 'outfit'];
+        maxDenoise = 0.40;
+        maxDilation = 10;
+        minThreshold = 0.2;
         matchedRegions.push('general_detection');
     }
 
