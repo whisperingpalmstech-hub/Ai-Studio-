@@ -543,10 +543,10 @@ function WorkflowEditorContent() {
     );
 
     return (
-        <div style={{ height: 'calc(100vh - 64px)', overflow: 'hidden', background: '#09090b', position: 'relative' }}>
+        <div className="workflow-editor-container" style={{ height: 'calc(100vh - 64px)', overflow: 'hidden', background: '#09090b', position: 'relative' }}>
 
             {/* Floating Top Toolbar */}
-            <div style={{
+            <div className="workflow-toolbar" style={{
                 position: 'absolute',
                 top: '1rem',
                 left: '50%',
@@ -560,7 +560,8 @@ function WorkflowEditorContent() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                maxWidth: 'calc(100vw - 2rem)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <button
@@ -678,7 +679,7 @@ function WorkflowEditorContent() {
             <div style={{ display: 'flex', height: '100%', position: 'relative' }}>
 
                 {/* Collapsible Node Library Panel */}
-                <div style={{
+                <div className="node-panel" style={{
                     width: sidebarCollapsed ? '0px' : '280px',
                     height: '100%',
                     background: '#18181b',

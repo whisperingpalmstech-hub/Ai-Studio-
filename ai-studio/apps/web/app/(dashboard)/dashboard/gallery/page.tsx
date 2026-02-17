@@ -114,7 +114,7 @@ export default function GalleryPage() {
     );
 
     return (
-        <div style={{ maxWidth: '100rem', margin: '0 auto' }}>
+        <div style={{ maxWidth: '100rem', margin: '0 auto', padding: '0 1rem' }}>
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
@@ -203,7 +203,7 @@ export default function GalleryPage() {
                     </a>
                 </div>
             ) : (
-                <div style={{
+                <div className="recent-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                     gap: '1.5rem'
@@ -338,18 +338,52 @@ export default function GalleryPage() {
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
+                        className="image-lightbox-content"
                         style={{
                             maxWidth: '90rem',
                             width: '100%',
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
                             gap: '2rem',
                             backgroundColor: 'hsl(222, 47%, 6%)',
                             borderRadius: '1rem',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            position: 'relative'
                         }}
                     >
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setSelectedImage(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '1rem',
+                                right: '1rem',
+                                zIndex: 10,
+                                width: '2.5rem',
+                                height: '2.5rem',
+                                borderRadius: '50%',
+                                background: 'rgba(0, 0, 0, 0.6)',
+                                backdropFilter: 'blur(8px)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.6)';
+                                e.currentTarget.style.borderColor = '#ef4444';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)';
+                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                            }}
+                        >
+                            <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                        </button>
                         {/* Media Display */}
                         <div style={{ padding: '2rem' }}>
                             {selectedImage.type === 'video' ? (
@@ -509,11 +543,19 @@ export default function GalleryPage() {
                         padding: '2rem',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', color: '#ef4444' }}>
-                            <div style={{ padding: '0.75rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-                                <AlertTriangle size={24} />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: '#ef4444' }}>
+                                <div style={{ padding: '0.75rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                                    <AlertTriangle size={24} />
+                                </div>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>Confirm Deletion</h3>
                             </div>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>Confirm Deletion</h3>
+                            <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
                         <p style={{ color: '#9ca3af', marginBottom: '2rem', lineHeight: 1.6 }}>

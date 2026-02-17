@@ -529,9 +529,9 @@ export default function GenerateVideoPage() {
     };
 
     return (
-        <div style={{ maxWidth: '80rem', margin: '0 auto', paddingBottom: '4rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem', paddingBottom: '4rem' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                         <h1 style={{
@@ -569,7 +569,7 @@ export default function GenerateVideoPage() {
                         Produce Hollywood-grade cinematic motion using the state-of-the-art Wan 2.1 engine.
                     </p>
                 </div>
-                <div style={{
+                <div className="credit-badge" style={{
                     padding: '0.625rem 1.25rem',
                     borderRadius: '0.75rem',
                     backgroundColor: 'rgba(168, 85, 247, 0.15)',
@@ -577,7 +577,8 @@ export default function GenerateVideoPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.625rem',
-                    backdropFilter: 'blur(8px)'
+                    backdropFilter: 'blur(8px)',
+                    flexShrink: 0
                 }}>
                     <Zap size={18} style={{ color: '#a855f7' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -593,7 +594,7 @@ export default function GenerateVideoPage() {
             </div>
 
             {/* Mode Selection Tabs */}
-            <div style={{
+            <div className="mode-tabs" style={{
                 display: 'flex',
                 background: 'rgba(88, 28, 135, 0.2)',
                 borderRadius: '1rem',
@@ -601,7 +602,8 @@ export default function GenerateVideoPage() {
                 marginBottom: '2rem',
                 gap: '0.375rem',
                 width: 'fit-content',
-                border: '1px solid rgba(168, 85, 247, 0.1)'
+                border: '1px solid rgba(168, 85, 247, 0.1)',
+                overflowX: 'auto'
             }}>
                 {MODES.map((m) => (
                     <button
@@ -630,7 +632,7 @@ export default function GenerateVideoPage() {
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2.5rem' }}>
+            <div className="generate-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2.5rem' }}>
                 {/* Left Column - Input */}
                 <div>
                     {/* Model Selection */}
@@ -950,7 +952,7 @@ export default function GenerateVideoPage() {
                 </div>
 
                 {/* Right Column - Preview Area */}
-                <div style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
+                <div className="generate-preview" style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
                     <div style={{
                         borderRadius: '1.25rem',
                         border: '1px solid rgba(168, 85, 247, 0.2)',
@@ -1259,7 +1261,7 @@ function RecentVideosGrid({ refreshKey }: { refreshKey: number }) {
     );
 
     return (
-        <div style={{
+        <div className="recent-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '2rem'

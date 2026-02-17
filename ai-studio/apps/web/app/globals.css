@@ -280,3 +280,218 @@ body {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* ─────── RESPONSIVE UTILITIES ─────── */
+
+/* Settings page: stack sidebar + content on mobile */
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-sidebar {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    gap: 0.25rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .settings-sidebar button {
+    flex-shrink: 0 !important;
+    padding: 0.625rem 0.875rem !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Generate page: single column on mobile */
+@media (max-width: 900px) {
+  .generate-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .generate-preview {
+    position: static !important;
+  }
+}
+
+/* Tables: horizontal scroll on mobile */
+@media (max-width: 640px) {
+  .responsive-table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .responsive-table table {
+    min-width: 500px !important;
+  }
+}
+
+/* API docs: endpoint header wraps on mobile */
+@media (max-width: 640px) {
+  .endpoint-header {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .endpoint-header code {
+    font-size: 0.75rem !important;
+    width: 100% !important;
+    order: 3 !important;
+  }
+
+  .endpoint-header .endpoint-desc {
+    display: none !important;
+  }
+}
+
+/* Code blocks: scroll on mobile */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Gallery/Recent grid: fewer columns on mobile */
+@media (max-width: 640px) {
+  .recent-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+}
+
+/* Billing plans: single column on small screens */
+@media (max-width: 768px) {
+  .plans-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Mode tabs: scroll on mobile */
+@media (max-width: 640px) {
+  .mode-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .mode-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .mode-tabs button {
+    flex-shrink: 0 !important;
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+}
+
+/* Workflow editor: full height on mobile */
+@media (max-width: 768px) {
+  .workflow-editor-container {
+    height: calc(100vh - 4rem) !important;
+  }
+
+  .workflow-toolbar {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .workflow-toolbar button {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .node-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: 50vh !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    z-index: 50 !important;
+  }
+}
+
+/* Workflow cards grid */
+@media (max-width: 640px) {
+  .workflow-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Image detail popup / lightbox responsive */
+@media (max-width: 640px) {
+  .image-lightbox-content {
+    width: 95vw !important;
+    max-height: 90vh !important;
+    margin: 1rem !important;
+  }
+
+  .image-lightbox-content img,
+  .image-lightbox-content video {
+    max-height: 50vh !important;
+  }
+}
+
+/* Header section: wrap on mobile */
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Credit badge compact on mobile */
+@media (max-width: 640px) {
+  .credit-badge {
+    padding: 0.375rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Aspect ratio buttons: wrap */
+@media (max-width: 640px) {
+  .aspect-ratio-buttons {
+    flex-wrap: wrap !important;
+  }
+}
+
+/* API key items: stack on mobile */
+@media (max-width: 640px) {
+  .api-key-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .api-key-item .api-key-actions {
+    align-self: flex-end !important;
+  }
+}
+
+/* Quick start steps: single col on mobile */
+@media (max-width: 640px) {
+  .steps-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Video gen page header responsive */
+@media (max-width: 640px) {
+  .video-header {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+}

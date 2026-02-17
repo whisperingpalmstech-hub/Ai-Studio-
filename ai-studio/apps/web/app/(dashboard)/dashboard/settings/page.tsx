@@ -155,7 +155,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem' }}>
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
@@ -166,9 +166,9 @@ export default function SettingsPage() {
                 </p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
+            <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
                 {/* Sidebar */}
-                <div style={{
+                <div className="settings-sidebar" style={{
                     borderRadius: '0.75rem',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -509,6 +509,7 @@ export default function SettingsPage() {
                                     {apiKeys.map((key) => (
                                         <div
                                             key={key.id}
+                                            className="api-key-item"
                                             style={{
                                                 borderRadius: '0.75rem',
                                                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -560,21 +561,23 @@ export default function SettingsPage() {
                                             </div>
 
                                             {/* Actions */}
-                                            <button
-                                                onClick={() => handleDeleteKey(key.id, key.name)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem',
-                                                    border: '1px solid rgba(239,68,68,0.2)', background: 'transparent',
-                                                    color: '#ef4444', cursor: 'pointer', flexShrink: 0,
-                                                    transition: 'all 0.2s ease',
-                                                }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                                title="Revoke key"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                            <div className="api-key-actions">
+                                                <button
+                                                    onClick={() => handleDeleteKey(key.id, key.name)}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem',
+                                                        border: '1px solid rgba(239,68,68,0.2)', background: 'transparent',
+                                                        color: '#ef4444', cursor: 'pointer', flexShrink: 0,
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                                    title="Revoke key"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

@@ -616,9 +616,9 @@ export default function GeneratePage() {
     };
 
     return (
-        <div style={{ maxWidth: '80rem', margin: '0 auto', paddingBottom: '4rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', paddingBottom: '4rem', padding: '0 1rem 4rem' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                         <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: 'white' }}>
@@ -650,7 +650,7 @@ export default function GeneratePage() {
                         Transform your ideas into stunning visual art with our advanced AI engine.
                     </p>
                 </div>
-                <div style={{
+                <div className="credit-badge" style={{
                     padding: '0.625rem 1.25rem',
                     borderRadius: '0.75rem',
                     backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -658,7 +658,8 @@ export default function GeneratePage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.625rem',
-                    backdropFilter: 'blur(8px)'
+                    backdropFilter: 'blur(8px)',
+                    flexShrink: 0
                 }}>
                     <Zap size={18} style={{ color: '#6366f1' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -674,7 +675,7 @@ export default function GeneratePage() {
             </div>
 
             {/* Mode Selection Tabs */}
-            <div style={{
+            <div className="mode-tabs" style={{
                 display: 'flex',
                 background: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '0.75rem',
@@ -710,7 +711,7 @@ export default function GeneratePage() {
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
+            <div className="generate-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
                 {/* Left Column - Input */}
                 <div>
 
@@ -1145,7 +1146,7 @@ export default function GeneratePage() {
                 </div>
 
                 {/* Right Column - Preview */}
-                <div style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
+                <div className="generate-preview" style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
                     <div style={{
                         borderRadius: '0.75rem',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -1692,7 +1693,7 @@ function RecentGenerationsGrid({ refreshKey }: { refreshKey: number }) {
                     <p>No {activeTab}s found in your recent history.</p>
                 </div>
             ) : (
-                <div style={{
+                <div className="recent-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                     gap: '1.5rem'

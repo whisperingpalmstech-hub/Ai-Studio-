@@ -139,6 +139,7 @@ function EndpointCard({
         }}>
             <button
                 onClick={onToggle}
+                className="endpoint-header"
                 style={{
                     width: "100%",
                     display: "flex",
@@ -184,7 +185,7 @@ function EndpointCard({
                             <h4 style={{ fontSize: "0.75rem", fontWeight: 600, color: "#9ca3af", marginBottom: "0.75rem", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
                                 Parameters
                             </h4>
-                            <div style={{ borderRadius: "0.625rem", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                            <div className="responsive-table" style={{ borderRadius: "0.625rem", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.06)" }}>
                                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
                                     <thead>
                                         <tr style={{ background: "rgba(255, 255, 255, 0.03)" }}>
@@ -253,7 +254,7 @@ export default function ApiDocsPage() {
     };
 
     return (
-        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto", padding: "0 1rem" }}>
             {/* Header */}
             <div style={{ marginBottom: "2.5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
@@ -347,7 +348,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
                 <p style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
                     Every generation follows this pattern: Upload → Create Job → Poll Result
                 </p>
-                <div style={{
+                <div className="steps-grid" style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                     gap: "1rem",
@@ -560,7 +561,7 @@ curl -X POST http://localhost:4000/api/v1/jobs \\
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "white", marginBottom: "1rem", letterSpacing: "-0.02em" }}>
                     Job Types & Credit Costs
                 </h2>
-                <div style={{
+                <div className="responsive-table" style={{
                     borderRadius: "0.875rem",
                     border: "1px solid rgba(255, 255, 255, 0.06)",
                     overflow: "hidden",

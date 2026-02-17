@@ -142,9 +142,9 @@ export default function ModelsPage() {
     };
 
     return (
-        <div style={{ maxWidth: '100rem', margin: '0 auto' }}>
+        <div style={{ maxWidth: '100rem', margin: '0 auto', padding: '0 1rem' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: 'white', marginBottom: '0.5rem' }}>
                         Model Library
@@ -264,7 +264,7 @@ export default function ModelsPage() {
                     </button>
                 </div>
             ) : (
-                <div style={{
+                <div className="models-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                     gap: '1.5rem'

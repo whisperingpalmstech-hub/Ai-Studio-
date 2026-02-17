@@ -149,7 +149,7 @@ export default function WorkflowsPage() {
                     <Zap size={20} style={{ color: '#f59e0b' }} />
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'white' }}>Quick Start Templates</h2>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div className="workflow-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                     {WORKFLOW_TEMPLATES.map((template) => {
                         const Icon = CATEGORY_ICONS[template.category] || Zap;
                         return (
@@ -255,7 +255,7 @@ export default function WorkflowsPage() {
                     <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                <div className="workflow-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
 
                     {/* Create New Card */}
                     <div
