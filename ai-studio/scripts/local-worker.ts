@@ -1127,19 +1127,19 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: 9, sigma: 4 }
         };
 
-        // VAEEncode + SetLatentNoiseMask — proven working approach
-        workflow[ID_AI.VAE_ENCODE] = {
-            class_type: "VAEEncode",
+        // === INPAINT MODEL CONDITIONING ===
+        // This is the CORRECT way to do inpainting in ComfyUI.
+        // InpaintModelConditioning encodes the UNMASKED pixels (face, hands, background)
+        // into the conditioning, making the model PHYSICALLY UNABLE to change those areas.
+        // This replaces VAEEncode + SetLatentNoiseMask which did NOT protect unmasked areas.
+        const INPAINT_COND_ID = "15";
+        workflow[INPAINT_COND_ID] = {
+            class_type: "InpaintModelConditioning",
             inputs: {
+                positive: [ID_AI.PROMPT_POS, 0],
+                negative: [ID_AI.PROMPT_NEG, 0],
+                vae: [ID_AI.CHECKPOINT, 2],
                 pixels: [ID_AI.LOAD_IMAGE, 0],
-                vae: [ID_AI.CHECKPOINT, 2]
-            }
-        };
-
-        workflow[ID_AI.SET_LATENT_MASK] = {
-            class_type: "SetLatentNoiseMask",
-            inputs: {
-                samples: [ID_AI.VAE_ENCODE, 0],
                 mask: [ID_AI.BLUR_MASK, 0]
             }
         };
@@ -1148,15 +1148,17 @@ const generateSimpleWorkflow = (params: any) => {
             class_type: "KSampler",
             inputs: {
                 model: [ID_AI.CHECKPOINT, 0],
-                positive: [ID_AI.PROMPT_POS, 0],
-                negative: [ID_AI.PROMPT_NEG, 0],
-                latent_image: [ID_AI.SET_LATENT_MASK, 0],
+                // Use CONDITIONED outputs from InpaintModelConditioning
+                // These contain encoded unmasked pixels → face/identity is LOCKED
+                positive: [INPAINT_COND_ID, 0],
+                negative: [INPAINT_COND_ID, 1],
+                latent_image: [INPAINT_COND_ID, 2],
                 seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
                 steps: Number(params.steps) || 30,
                 cfg: Number(params.cfg_scale) || 7.0,
                 sampler_name: comfySampler,
                 scheduler: scheduler,
-                denoise: 0.35
+                denoise: 1.0  // With InpaintModelConditioning, denoise=1.0 is correct — the conditioning handles preservation
             }
         };
 
