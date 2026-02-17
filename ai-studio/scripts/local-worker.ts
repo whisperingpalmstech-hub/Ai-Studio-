@@ -94,7 +94,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'vest', 'kurta', 'polo', 'tank top', 'crop top', 'cardigan', 'blazer', 'sweatshirt',
                 'jersey', 'tunic', 'pullover', 'windbreaker', 'parka', 'fleece'],
             dinoParts: ['shirt', 'top', 'upper clothes'],
-            denoise: 0.35,
+            denoise: 0.55,
             threshold: 0.2,
             dilation: 6,
             negatives: 'wrong neckline, mismatched sleeves'
@@ -104,7 +104,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'chinos', 'joggers', 'cargo pants', 'culottes', 'palazzo', 'flares', 'capri',
                 'bermuda', 'sweatpants', 'track pants', 'dhoti'],
             dinoParts: ['pants', 'jeans', 'lower clothes'],
-            denoise: 0.35,
+            denoise: 0.55,
             threshold: 0.2,
             dilation: 6,
             negatives: 'wrong leg shape'
@@ -116,7 +116,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
             dinoParts: ['clothes', 'dress', 'garment'],
-            denoise: 0.40,
+            denoise: 0.55,
             threshold: 0.2,
             dilation: 8,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing'
@@ -1018,7 +1018,7 @@ const generateSimpleWorkflow = (params: any) => {
         // CRITICAL: Always use the smart analyzer's denoise — the frontend slider (0.75)
         // is way too high for inpainting and WILL regenerate the person's face.
         // For clothing-only changes, 0.4-0.55 preserves identity while changing textures.
-        const autoDenoise = Math.min(analysis.denoise, 0.45);
+        const autoDenoise = Math.min(analysis.denoise, 0.65);
         const autoThreshold = analysis.dinoThreshold;
         const autoMaskDilation = analysis.maskDilation;
 
