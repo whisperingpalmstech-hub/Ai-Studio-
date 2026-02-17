@@ -496,6 +496,7 @@ export default function GeneratePage() {
                     image_filename: uploadedFilename,
                     mask_filename: isAutoMask ? undefined : uploadedMaskFilename,
                     auto_mask: mode === "inpaint" ? isAutoMask : false,
+                    mask_prompt: (mode === "inpaint" && isAutoMask) ? prompt : undefined,
                     denoising_strength: denoisingStrength,
                     upscale_factor: upscaleFactor,
                     model_id: selectedModel?.file_path

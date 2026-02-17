@@ -861,34 +861,47 @@ async function processJob(job: any) {
 
         // Handle Mask for Inpainting
         if (job.type === "inpaint") {
-            if (!maskFilename) {
-                // Check both 'mask' and 'mask_url' — the API route may store base64 under either key
-                const maskBase64 = [job.params.mask, job.params.mask_url]
-                    .find(v => v && typeof v === 'string' && v.startsWith("data:image"));
-
-                if (maskBase64) {
-                    maskFilename = `mask_${job.id}.png`;
-                    console.log(`📡 Mask Legacy Upload: Converting base64 mask to ${maskFilename}`);
-                    await uploadImageToComfy(maskBase64, maskFilename);
-                } else {
-                    throw new Error(`Enterprise Integrity Error: Inpaint job requires a mask_filename.`);
+            // Check if this is an auto-mask job (Grok AI / GroundingDINO+SAM)
+            if (job.params.auto_mask) {
+                console.log(`🎭 Auto-Mask Mode Detected — routing to auto_inpaint pipeline`);
+                console.log(`   mask_prompt: "${job.params.mask_prompt || job.params.prompt}"`);
+                // Override the job type so generateSimpleWorkflow picks the auto_inpaint branch
+                job.type = "auto_inpaint";
+                // Ensure mask_prompt is set (fallback to the main prompt for DINO detection)
+                if (!job.params.mask_prompt) {
+                    job.params.mask_prompt = job.params.prompt || "clothes";
                 }
-            }
-            const maskPath = path.join(COMFYUI_INPUT_DIR, maskFilename);
-            if (!fs.existsSync(maskPath)) {
-                console.log(`☁️ Mask ${maskFilename} missing locally. Checking Supabase Storage...`);
-                const storagePath = `inputs/${job.user_id}/${maskFilename}`;
-                const { data, error } = await supabase.storage.from('assets').download(storagePath);
+            } else {
+                // Manual mask mode — require mask_filename
+                if (!maskFilename) {
+                    // Check both 'mask' and 'mask_url' — the API route may store base64 under either key
+                    const maskBase64 = [job.params.mask, job.params.mask_url]
+                        .find(v => v && typeof v === 'string' && v.startsWith("data:image"));
 
-                if (error || !data) {
-                    throw new Error(`Enterprise File System Error: Required mask file '${maskFilename}' missing from local and cloud storage.`);
+                    if (maskBase64) {
+                        maskFilename = `mask_${job.id}.png`;
+                        console.log(`📡 Mask Legacy Upload: Converting base64 mask to ${maskFilename}`);
+                        await uploadImageToComfy(maskBase64, maskFilename);
+                    } else {
+                        throw new Error(`Enterprise Integrity Error: Inpaint job requires a mask_filename. Use Auto-Mask mode or upload a mask image.`);
+                    }
                 }
+                const maskPath = path.join(COMFYUI_INPUT_DIR, maskFilename);
+                if (!fs.existsSync(maskPath)) {
+                    console.log(`☁️ Mask ${maskFilename} missing locally. Checking Supabase Storage...`);
+                    const storagePath = `inputs/${job.user_id}/${maskFilename}`;
+                    const { data, error } = await supabase.storage.from('assets').download(storagePath);
 
-                const buffer = Buffer.from(await data.arrayBuffer());
-                fs.writeFileSync(maskPath, buffer);
-                console.log(`✅ Successfully synced mask ${maskFilename} from cloud.`);
+                    if (error || !data) {
+                        throw new Error(`Enterprise File System Error: Required mask file '${maskFilename}' missing from local and cloud storage.`);
+                    }
+
+                    const buffer = Buffer.from(await data.arrayBuffer());
+                    fs.writeFileSync(maskPath, buffer);
+                    console.log(`✅ Successfully synced mask ${maskFilename} from cloud.`);
+                }
+                console.log(`✅ Mask Verified: ${maskFilename} exists.`);
             }
-            console.log(`✅ Mask Verified: ${maskFilename} exists.`);
         }
 
         let workflow = job.params.workflow;

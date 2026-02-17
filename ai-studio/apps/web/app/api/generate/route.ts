@@ -112,6 +112,8 @@ export async function POST(request: Request) {
             mask: body.mask,
             image_filename: body.image_filename,
             mask_filename: body.mask_filename,
+            auto_mask: body.auto_mask || false,
+            mask_prompt: body.mask_prompt,
             denoising_strength: body.denoising_strength,
             workflow: body.workflow,
         };
