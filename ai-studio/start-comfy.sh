@@ -14,4 +14,4 @@ fi
 # Activate venv and start
 source "$VENV_PATH/bin/activate"
 cd "$COMFY_DIR"
-python3 main.py --listen 127.0.0.1 --port 8188 --lowvram --force-fp16
+python3 main.py --listen 127.0.0.1 --port 8188
