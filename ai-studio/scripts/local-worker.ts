@@ -1447,12 +1447,24 @@ const generateSimpleWorkflow = (params: any) => {
             }
         };
 
+        const ID_CONTEXT = "18"; // Context window for handling > 32 frames
+        workflow[ID_CONTEXT] = {
+            class_type: "ADE_LoopedUniformContextOptions",
+            inputs: {
+                context_length: 16,
+                context_stride: 1,
+                context_overlap: 4,
+                closed_loop: false
+            }
+        };
+
         const ID_EVOLVED = "17"; // Bridge node for Gen2 evolved
         workflow[ID_EVOLVED] = {
             class_type: "ADE_UseEvolvedSampling",
             inputs: {
                 model: [ID_VID.CHECKPOINT, 0],
                 m_models: [ID_VID.AD_APPLY, 0],
+                context_options: [ID_CONTEXT, 0],
                 beta_schedule: "autoselect"
             }
         };
