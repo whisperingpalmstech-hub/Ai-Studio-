@@ -1353,12 +1353,15 @@ const generateSimpleWorkflow = (params: any) => {
             VIDEO_COMBINE: "16"
         };
 
-        // SMART CHECKPOINT SELECTION: Ensure we don't try to load a Wan model as a base checkpoint
-        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
-        if (baseCheckpoint.toLowerCase().includes('wan')) {
-            console.log(`⚠️ Model ${baseCheckpoint} is a video model, switching to SDXL for inpainting backbone.`);
-            baseCheckpoint = "sd_xl_base_1.0.safetensors";
+        // SMART CHECKPOINT SELECTION
+        // Taking the model directly from the payload without forcing an override
+        let baseCheckpoint = params.model_id;
+
+        if (!baseCheckpoint) {
+            baseCheckpoint = "sd_xl_base_1.0.safetensors"; // default to a safe model if payload is empty
         }
+
+        console.log(`🚀 Using inpaint backbone: ${baseCheckpoint}`);
 
         workflow[ID_VID.LOAD_VIDEO] = {
             class_type: "VHS_LoadVideo",
