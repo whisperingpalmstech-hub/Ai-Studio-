@@ -1354,11 +1354,14 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         // SMART CHECKPOINT SELECTION
-        // Taking the model directly from the payload without forcing an override
-        let baseCheckpoint = params.model_id;
+        // AnimateDiff requires SD 1.5 or SDXL models as the backbone.
+        // It cannot use Wan 2.1 or SVD. 
+        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
+        const modelLower = baseCheckpoint.toLowerCase();
 
-        if (!baseCheckpoint) {
-            baseCheckpoint = "sd_xl_base_1.0.safetensors"; // default to a safe model if payload is empty
+        if (modelLower.includes('wan') || modelLower.includes('svd') || modelLower.includes('video')) {
+            console.log(`⚠️ Model ${baseCheckpoint} is a video model. AnimateDiff requires an SD Backbone. Switching to SDXL Base.`);
+            baseCheckpoint = "sd_xl_base_1.0.safetensors";
         }
 
         console.log(`🚀 Using inpaint backbone: ${baseCheckpoint}`);
