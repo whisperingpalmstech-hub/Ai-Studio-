@@ -1445,8 +1445,20 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         // Detect base model for AnimateDiff (SD1.5 vs SDXL)
-        const isSDXL = baseCheckpoint.toLowerCase().includes('xl') || baseCheckpoint.toLowerCase().includes('base_1.0');
+        // SDXL + AnimateDiff is very VRAM intensive and often OOMs on 8GB systems, or causes CLIP mismatches.
+        // We will force standard SD1.5 ("v1-5-pruned-emaonly.safetensors") unless explicitly capable.
+        let isSDXL = baseCheckpoint.toLowerCase().includes('xl') || baseCheckpoint.toLowerCase().includes('base_1.0');
+
+        if (isSDXL) {
+            console.log("⚠️ SDXL detected for AnimateDiff. This may cause OOM on 8GB VRAM. Falling back to SD 1.5 backbone...");
+            baseCheckpoint = "v1-5-pruned-emaonly.safetensors";
+            isSDXL = false;
+        }
+
         const motionModel = isSDXL ? "mm_sdxl_v10_beta.safetensors" : "mm_sd_v15_v2.ckpt";
+
+        // OVERRIDE CHECKPOINT in workflow 
+        workflow[ID_VID.CHECKPOINT].inputs.ckpt_name = baseCheckpoint;
 
         // AnimateDiff Gen2 Chain for high stability
         workflow[ID_VID.AD_LOADER] = {
