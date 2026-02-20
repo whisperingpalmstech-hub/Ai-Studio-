@@ -80,6 +80,22 @@ const autoInpaintSchema = z.object({
     height: z.number().min(128).max(2048).optional().default(512),
 });
 
+const videoInpaintSchema = z.object({
+    prompt: z.string().min(1).max(2000),
+    negative_prompt: z.string().max(2000).optional().default(""),
+    mask_prompt: z.string().min(1).max(500),
+    video_filename: z.string().min(1, "Video is required for video-inpaint"),
+    denoise: z.number().min(0).max(1).optional().default(0.75),
+    steps: z.number().min(1).max(100).optional().default(30),
+    guidance_scale: z.number().min(1).max(30).optional().default(6),
+    seed: z.number().optional().default(-1),
+    width: z.number().min(128).max(2048).optional().default(1024),
+    height: z.number().min(128).max(2048).optional().default(576),
+    video_frames: z.number().optional().default(81),
+    fps: z.number().optional().default(16),
+    model_id: z.string().optional(),
+});
+
 // POST /api/v1/jobs - Create a new generation job
 router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -87,7 +103,7 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
         const { type = "txt2img", ...params } = req.body;
 
         // Validate job type
-        const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale", "workflow", "t2v", "i2v", "auto_inpaint"];
+        const validTypes = ["txt2img", "img2img", "inpaint", "outpaint", "upscale", "workflow", "t2v", "i2v", "auto_inpaint", "video_inpaint"];
         if (!validTypes.includes(type)) {
             throw new BadRequestError(`Invalid job type: ${type}`);
         }
@@ -117,6 +133,9 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
                     break;
                 case "auto_inpaint":
                     validatedParams = autoInpaintSchema.parse(params);
+                    break;
+                case "video_inpaint":
+                    validatedParams = videoInpaintSchema.parse(params);
                     break;
                 default:
                     validatedParams = params;
@@ -154,7 +173,7 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
             }
         }
 
-        // Enterprise Grade: Verify image file existence on disk
+        // Enterprise Grade: Verify file existence on disk
         if (["img2img", "inpaint", "upscale", "i2v", "auto_inpaint"].includes(type)) {
             const filename = (validatedParams as any).image_filename;
             if (!filename) {
@@ -165,7 +184,20 @@ router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunc
                 console.error(`❌ Validation Failed: File not found at ${fullPath}`);
                 throw new BadRequestError(`Uploaded image '${filename}' not found on server. Please re-upload.`);
             }
-            console.log(`✅ Job Validation: File verified at ${fullPath}`);
+            console.log(`✅ Job Validation: Image verified at ${fullPath}`);
+        }
+
+        if (type === "video_inpaint") {
+            const filename = (validatedParams as any).video_filename;
+            if (!filename) {
+                throw new BadRequestError(`Video is required for video-inpaint.`);
+            }
+            const fullPath = path.join(COMFYUI_INPUT_DIR, filename);
+            if (!fs.existsSync(fullPath)) {
+                console.error(`❌ Validation Failed: Video not found at ${fullPath}`);
+                throw new BadRequestError(`Uploaded video '${filename}' not found on server. Please re-upload.`);
+            }
+            console.log(`✅ Job Validation: Video verified at ${fullPath}`);
         }
 
         // Check tier limits
