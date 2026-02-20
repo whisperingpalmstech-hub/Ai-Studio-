@@ -119,7 +119,9 @@ export default function GalleryPage() {
         <div style={{ maxWidth: '100rem', margin: '0 auto', padding: '0 1rem' }}>
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>\n                    {t('galleryTitle')}\n                </h1>
+                <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
+                    {t('galleryTitle')}
+                </h1>
                 <p style={{ color: '#9ca3af' }}>
                     {t('manageImages')}
                 </p>
@@ -139,7 +141,7 @@ export default function GalleryPage() {
                     <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1.25rem', height: '1.25rem', color: '#9ca3af' }} />
                     <input
                         type="text"
-                        placeholder="{t('searchPrompt')}"
+                        placeholder={t('searchPrompt')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{
@@ -165,7 +167,9 @@ export default function GalleryPage() {
                     color: 'white',
                     cursor: 'pointer'
                 }}>
-                    <Filter style={{ width: '1rem', height: '1rem' }} />\n                    <Filter style={{ width: '1rem', height: '1rem' }} />\n                    {t('filter')}\n                </button>
+                    <Filter style={{ width: '1rem', height: '1rem' }} />
+                    {t('filter')}
+                </button>
             </div>
 
             {/* Gallery Grid */}
@@ -182,7 +186,9 @@ export default function GalleryPage() {
                     backgroundColor: 'rgba(255, 255, 255, 0.02)'
                 }}>
                     <Sparkles style={{ width: '3rem', height: '3rem', margin: '0 auto 1rem', color: '#6366f1', opacity: 0.5 }} />
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem', color: 'white' }}>\n                        {t('noGensYet')}\n                    </h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem', color: 'white' }}>
+                        {t('noGensYet')}
+                    </h3>
                     <p style={{ color: '#9ca3af', marginBottom: '1.5rem' }}>
                         {t('startCreatingImages')}
                     </p>
@@ -194,7 +200,9 @@ export default function GalleryPage() {
                         color: 'white',
                         textDecoration: 'none',
                         fontWeight: 500
-                    }}>\n                        {t('genFirstImage')}\n                    </a>
+                    }}>
+                        {t('genFirstImage')}
+                    </a>
                 </div>
             ) : (
                 <div className="recent-grid" style={{
@@ -310,275 +318,279 @@ export default function GalleryPage() {
                         </div>
                     ))}
                 </div>
-            )}
+            )
+            }
 
             {/* Image Detail Modal */}
-            {selectedImage && (
-                <div
-                    onClick={() => setSelectedImage(null)}
-                    style={{
+            {
+                selectedImage && (
+                    <div
+                        onClick={() => setSelectedImage(null)}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            zIndex: 50,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '2rem'
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="image-lightbox-content"
+                            style={{
+                                maxWidth: '90rem',
+                                width: '100%',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
+                                gap: '2rem',
+                                backgroundColor: 'hsl(222, 47%, 6%)',
+                                borderRadius: '1rem',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                overflow: 'hidden',
+                                position: 'relative'
+                            }}
+                        >
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setSelectedImage(null)}
+                                style={{
+                                    position: 'absolute',
+                                    top: '1rem',
+                                    right: '1rem',
+                                    zIndex: 10,
+                                    width: '2.5rem',
+                                    height: '2.5rem',
+                                    borderRadius: '50%',
+                                    background: 'rgba(0, 0, 0, 0.6)',
+                                    backdropFilter: 'blur(8px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.6)';
+                                    e.currentTarget.style.borderColor = '#ef4444';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)';
+                                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                                }}
+                            >
+                                <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                            </button>
+                            {/* Media Display */}
+                            <div style={{ padding: '2rem' }}>
+                                {selectedImage.type === 'video' ? (
+                                    <video
+                                        src={selectedImage.file_path}
+                                        controls
+                                        autoPlay
+                                        loop
+                                        style={{
+                                            width: '100%',
+                                            height: 'auto',
+                                            borderRadius: '0.5rem'
+                                        }}
+                                    />
+                                ) : (
+                                    <img
+                                        src={selectedImage.file_path}
+                                        alt={selectedImage.prompt || "Generated image"}
+                                        style={{
+                                            width: '100%',
+                                            height: 'auto',
+                                            borderRadius: '0.5rem'
+                                        }}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Details */}
+                            <div style={{ padding: '2rem', overflow: 'auto' }}>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: 'white' }}>                                 {t('genDetails')}                             </h2>
+
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block', marginBottom: '0.5rem' }}>                                     {t('promptLabel')}                                 </label>
+                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                        {selectedImage.prompt || t('noPromptAvail')}
+                                    </p>
+                                </div>
+
+                                {selectedImage.negative_prompt && (
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block', marginBottom: '0.5rem' }}>                                         {t('negPromptLabel')}                                     </label>
+                                        <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                            {selectedImage.negative_prompt}
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('sizeLabel')}</label>
+                                        <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                            {selectedImage.width} × {selectedImage.height}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('stepsLabel')}</label>
+                                        <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                            {selectedImage.params?.steps || selectedImage.params?.num_inference_steps || "N/A"}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('cfgScaleLabel')}</label>
+                                        <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                            {selectedImage.params?.guidance_scale || "N/A"}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('seedLabel')}</label>
+                                        <p style={{ color: 'white', fontSize: '0.875rem' }}>
+                                            {selectedImage.seed}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button
+                                        onClick={() => handleDownload(selectedImage.file_path, selectedImage.id)}
+                                        style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.75rem',
+                                            borderRadius: '0.5rem',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        <Download style={{ width: '1rem', height: '1rem' }} />                                     <Download style={{ width: '1rem', height: '1rem' }} />                                     {t('downloadLabel')}                                 </button>
+                                    <button
+                                        onClick={() => setConfirmDeleteId(selectedImage.id)}
+                                        disabled={deletingId === selectedImage.id}
+                                        style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.75rem',
+                                            borderRadius: '0.5rem',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            backgroundColor: deletingId === selectedImage.id ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: '#ef4444',
+                                            cursor: deletingId === selectedImage.id ? 'not-allowed' : 'pointer',
+                                            fontWeight: 500,
+                                            opacity: deletingId === selectedImage.id ? 0.7 : 1
+                                        }}
+                                    >
+                                        {deletingId === selectedImage.id ? (
+                                            <Loader2 style={{ width: '1rem', height: '1rem' }} className="animate-spin" />
+                                        ) : (
+                                            <Trash2 style={{ width: '1rem', height: '1rem' }} />
+                                        )}
+                                        {deletingId === selectedImage.id ? "Deleting..." : t('deleteLabel')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+            {/* Confirmation Modal */}
+            {
+                confirmDeleteId && (
+                    <div style={{
                         position: 'fixed',
                         top: 0,
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                        zIndex: 50,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 100,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '2rem'
-                    }}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="image-lightbox-content"
-                        style={{
-                            maxWidth: '90rem',
+                        padding: '1rem'
+                    }}>
+                        <div style={{
+                            maxWidth: '28rem',
                             width: '100%',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
-                            gap: '2rem',
-                            backgroundColor: 'hsl(222, 47%, 6%)',
+                            backgroundColor: '#1a1a2e',
                             borderRadius: '1rem',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
-                            overflow: 'hidden',
-                            position: 'relative'
-                        }}
-                    >
-                        {/* Close Button */}
-                        <button
-                            onClick={() => setSelectedImage(null)}
-                            style={{
-                                position: 'absolute',
-                                top: '1rem',
-                                right: '1rem',
-                                zIndex: 10,
-                                width: '2.5rem',
-                                height: '2.5rem',
-                                borderRadius: '50%',
-                                background: 'rgba(0, 0, 0, 0.6)',
-                                backdropFilter: 'blur(8px)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.6)';
-                                e.currentTarget.style.borderColor = '#ef4444';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)';
-                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                            }}
-                        >
-                            <X style={{ width: '1.25rem', height: '1.25rem' }} />
-                        </button>
-                        {/* Media Display */}
-                        <div style={{ padding: '2rem' }}>
-                            {selectedImage.type === 'video' ? (
-                                <video
-                                    src={selectedImage.file_path}
-                                    controls
-                                    autoPlay
-                                    loop
-                                    style={{
-                                        width: '100%',
-                                        height: 'auto',
-                                        borderRadius: '0.5rem'
-                                    }}
-                                />
-                            ) : (
-                                <img
-                                    src={selectedImage.file_path}
-                                    alt={selectedImage.prompt || "Generated image"}
-                                    style={{
-                                        width: '100%',
-                                        height: 'auto',
-                                        borderRadius: '0.5rem'
-                                    }}
-                                />
-                            )}
-                        </div>
-
-                        {/* Details */}
-                        <div style={{ padding: '2rem', overflow: 'auto' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: 'white' }}>\n                                {t('genDetails')}\n                            </h2>
-
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block', marginBottom: '0.5rem' }}>\n                                    {t('promptLabel')}\n                                </label>
-                                <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                    {selectedImage.prompt || t('noPromptAvail')}
-                                </p>
+                            padding: '2rem',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: '#ef4444' }}>
+                                    <div style={{ padding: '0.75rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                                        <AlertTriangle size={24} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>{t('confirmDelTitle')}</h3>
+                                </div>
+                                <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            {selectedImage.negative_prompt && (
-                                <div style={{ marginBottom: '1.5rem' }}>
-                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block', marginBottom: '0.5rem' }}>\n                                        {t('negPromptLabel')}\n                                    </label>
-                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.negative_prompt}
-                                    </p>
-                                </div>
-                            )}
+                            <p style={{ color: '#9ca3af', marginBottom: '2rem', lineHeight: 1.6 }}>
+                                {t('confirmDelMsg')}
+                            </p>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('sizeLabel')}</label>
-                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.width} × {selectedImage.height}
-                                    </p>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('stepsLabel')}</label>
-                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.params?.steps || selectedImage.params?.num_inference_steps || "N/A"}
-                                    </p>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('cfgScaleLabel')}</label>
-                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.params?.guidance_scale || "N/A"}
-                                    </p>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{t('seedLabel')}</label>
-                                    <p style={{ color: 'white', fontSize: '0.875rem' }}>
-                                        {selectedImage.seed}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
-                                    onClick={() => handleDownload(selectedImage.file_path, selectedImage.id)}
+                                    onClick={() => setConfirmDeleteId(null)}
                                     style={{
                                         flex: 1,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.75rem',
-                                        borderRadius: '0.5rem',
-                                        border: 'none',
-                                        background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        fontWeight: 500
-                                    }}
-                                >
-                                    <Download style={{ width: '1rem', height: '1rem' }} />\n                                    <Download style={{ width: '1rem', height: '1rem' }} />\n                                    {t('downloadLabel')}\n                                </button>
-                                <button
-                                    onClick={() => setConfirmDeleteId(selectedImage.id)}
-                                    disabled={deletingId === selectedImage.id}
-                                    style={{
-                                        flex: 1,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '0.5rem',
                                         padding: '0.75rem',
                                         borderRadius: '0.5rem',
                                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        backgroundColor: deletingId === selectedImage.id ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.1)',
-                                        color: '#ef4444',
-                                        cursor: deletingId === selectedImage.id ? 'not-allowed' : 'pointer',
+                                        backgroundColor: 'transparent',
+                                        color: 'white',
                                         fontWeight: 500,
-                                        opacity: deletingId === selectedImage.id ? 0.7 : 1
+                                        cursor: 'pointer'
                                     }}
-                                >
-                                    {deletingId === selectedImage.id ? (
-                                        <Loader2 style={{ width: '1rem', height: '1rem' }} className="animate-spin" />
-                                    ) : (
-                                        <Trash2 style={{ width: '1rem', height: '1rem' }} />
-                                    )}
-                                    {deletingId === selectedImage.id ? "Deleting..." : t('deleteLabel')}
-                                </button>
+                                >                                 {t('cancel')}                             </button>
+                                <button
+                                    onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: 'none',
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >                                 {t('delPermanently')}                             </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )
+                )
             }
-            {/* Confirmation Modal */}
-            {confirmDeleteId && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 100,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '1rem'
-                }}>
-                    <div style={{
-                        maxWidth: '28rem',
-                        width: '100%',
-                        backgroundColor: '#1a1a2e',
-                        borderRadius: '1rem',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '2rem',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: '#ef4444' }}>
-                                <div style={{ padding: '0.75rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-                                    <AlertTriangle size={24} />
-                                </div>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>{t('confirmDelTitle')}</h3>
-                            </div>
-                            <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <p style={{ color: '#9ca3af', marginBottom: '2rem', lineHeight: 1.6 }}>
-                            {t('confirmDelMsg')}
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                style={{
-                                    flex: 1,
-                                    padding: '0.75rem',
-                                    borderRadius: '0.5rem',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    backgroundColor: 'transparent',
-                                    color: 'white',
-                                    fontWeight: 500,
-                                    cursor: 'pointer'
-                                }}
-                            >\n                                {t('cancel')}\n                            </button>
-                            <button
-                                onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
-                                style={{
-                                    flex: 1,
-                                    padding: '0.75rem',
-                                    borderRadius: '0.5rem',
-                                    border: 'none',
-                                    backgroundColor: '#ef4444',
-                                    color: 'white',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
-                                }}
-                            >\n                                {t('delPermanently')}\n                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div >
     );
 }

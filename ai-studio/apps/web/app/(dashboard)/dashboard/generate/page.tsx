@@ -1242,11 +1242,13 @@ export default function GeneratePage() {
                                 fontWeight: 500,
                                 cursor: 'pointer'
                             }}
-                        >\n                                    {t('stopResetUILabel')}\n                                </button>
+                        >
+                            {t('stopResetUILabel')}
+                        </button>
                     )}
 
                     <p style={{ fontSize: '0.75rem', textAlign: 'center', color: '#9ca3af' }}>
-                        This will use {MODES.find(m => m.id === mode)?.cost ?? 1} credit{(MODES.find(m => m.id === mode)?.cost ?? 1) > 1 ? 's' : ''} • You have {credits} credits remaining
+                        {t('cost')}: {MODES.find(m => m.id === mode)?.cost ?? 1} • {credits} {t('creditsRemaining')}
                     </p>
                 </div>
 

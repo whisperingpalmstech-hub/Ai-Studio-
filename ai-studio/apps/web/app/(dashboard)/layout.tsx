@@ -119,6 +119,39 @@ export default function DashboardLayout({
                 </div>
             </Link>
 
+            {/* Top Language Toggle */}
+            <div style={{ padding: "0 1rem 1rem", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                <div style={{
+                    display: 'flex',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '0.75rem',
+                    padding: '0.25rem',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                }}>
+                    {(['en', 'hi', 'mr'] as const).map((lang) => (
+                        <button
+                            key={lang}
+                            onClick={() => setLanguage(lang)}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem',
+                                borderRadius: '0.625rem',
+                                border: 'none',
+                                background: language === lang ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                                color: language === lang ? 'white' : '#9ca3af',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: language === lang ? '0 4px 12px rgba(99, 102, 241, 0.3)' : 'none'
+                            }}
+                        >
+                            {lang === 'en' ? 'EN' : lang === 'hi' ? 'HI' : 'MR'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Quick Action */}
             <div style={{ padding: "1.25rem 1rem" }}>
                 <Link href="/dashboard/generate" style={{ textDecoration: "none" }}>
@@ -251,29 +284,7 @@ export default function DashboardLayout({
                         {tier === "pro" ? t('managePlan') : t('upgradePlan')}
                     </button>
 
-                    {/* Language Selector */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontWeight: 500, textTransform: 'uppercase' }}>{t('uiLang')}</span>
-                        <select
-                            value={language}
-                            onChange={(e) => setLanguage(e.target.value as any)}
-                            style={{
-                                flex: 1,
-                                backgroundColor: 'rgba(15, 15, 35, 0.8)',
-                                color: 'white',
-                                border: '1px solid rgba(168, 85, 247, 0.3)',
-                                borderRadius: '0.375rem',
-                                padding: '0.125rem 0.25rem',
-                                fontSize: '0.75rem',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value="en">English</option>
-                            <option value="hi">हिंदी</option>
-                            <option value="mr">मराठी</option>
-                        </select>
-                    </div>
+
                 </div>
             </div>
 
@@ -357,7 +368,38 @@ export default function DashboardLayout({
                         </div>
                         <span style={{ fontSize: "1rem", fontWeight: 700, color: "white" }}>AI Studio</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {/* Mobile Language Toggle */}
+                        <div style={{
+                            display: 'flex',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            borderRadius: '0.5rem',
+                            padding: '0.125rem',
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
+                        }}>
+                            {(['en', 'hi', 'mr'] as const).map((lang) => (
+                                <button
+                                    key={lang}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLanguage(lang);
+                                    }}
+                                    style={{
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: '0.375rem',
+                                        border: 'none',
+                                        background: language === lang ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                                        color: language === lang ? 'white' : '#9ca3af',
+                                        fontSize: '0.625rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    {lang.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+
                         {/* Mobile credit badge */}
                         <div style={{
                             display: "flex",

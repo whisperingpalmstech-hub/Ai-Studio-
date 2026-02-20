@@ -114,7 +114,9 @@ export default function WorkflowsPage() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>\n                        {t('workflowTitle')}\n                    </h1>
+                    <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
+                        {t('workflowTitle')}
+                    </h1>
                     <p style={{ color: '#9ca3af' }}>
                         {t('workflowDesc')}
                     </p>
@@ -138,7 +140,9 @@ export default function WorkflowsPage() {
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    <Plus style={{ width: '1.25rem', height: '1.25rem' }} />\n                    <Plus style={{ width: '1.25rem', height: '1.25rem' }} />\n                    {t('newWorkflow')}\n                </button>
+                    <Plus style={{ width: '1.25rem', height: '1.25rem' }} />
+                    {t('newWorkflow')}
+                </button>
             </div>
 
             {/* Quick Start Templates */}
@@ -228,7 +232,8 @@ export default function WorkflowsPage() {
                                         {creatingTemplate === template.id ? (
                                             <Loader2 size={16} className="animate-spin" />
                                         ) : (
-                                            <>\n                                                {t('useTemplate')}
+                                            <>
+                                                {t('useTemplate')}
                                                 <span style={{ fontSize: '14px' }}>→</span>
                                             </>
                                         )}
@@ -292,7 +297,9 @@ export default function WorkflowsPage() {
                         }}>
                             <Plus style={{ width: '2rem', height: '2rem', color: 'white' }} />
                         </div>
-                        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>\n                            {t('createWorkflow')}\n                        </h3>
+                        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
+                            {t('createWorkflow')}
+                        </h3>
                         <p style={{ fontSize: '0.875rem', color: '#9ca3af', textAlign: 'center' }}>
                             {t('createWorkflowStartFromScratch')}
                         </p>
@@ -392,7 +399,9 @@ export default function WorkflowsPage() {
                                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)'}
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
                                     >
-                                        <Edit style={{ width: '1rem', height: '1rem' }} />\n                                        <Edit style={{ width: '1rem', height: '1rem' }} />\n                                        {t('editLabel')}\n                                    </button>
+                                        <Edit style={{ width: '1rem', height: '1rem' }} />
+                                        {t('editLabel')}
+                                    </button>
 
                                     <button
                                         onClick={() => handleCreate()} // Placeholder for "Run" directly from card, implies open editor then run

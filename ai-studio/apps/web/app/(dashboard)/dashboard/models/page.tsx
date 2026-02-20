@@ -150,10 +150,10 @@ export default function ModelsPage() {
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: 'white', marginBottom: '0.5rem' }}>
-                        Model Library
+                        {t('modelsHub')}
                     </h1>
                     <p style={{ color: '#9ca3af' }}>
-                        Browse and manage generative AI models, LoRAs, and embeddings.
+                        {t('modelsDesc')}
                     </p>
                 </div>
                 <button
@@ -172,7 +172,9 @@ export default function ModelsPage() {
                         boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
                     }}
                 >
-                    <Plus size={18} />\n                                    {t('addModel')}\n                                </button>
+                    <Plus size={18} />
+                    {t('addModel')}
+                </button>
             </div>
 
             {/* Filter Bar */}
@@ -190,7 +192,7 @@ export default function ModelsPage() {
                     <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '1.25rem', height: '1.25rem', color: '#9ca3af' }} />
                     <input
                         type="text"
-                        placeholder="{t('searchModels')}"
+                        placeholder={t('searchModels')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{
@@ -522,7 +524,8 @@ export default function ModelsPage() {
                             </div>
 
                             <div>
-                                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 500, color: '#9ca3af', marginBottom: '0.5rem' }}>\n                                    <span>{t('descriptionLabel')}</span>
+                                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 500, color: '#9ca3af', marginBottom: '0.5rem' }}>
+                                    <span>{t('descriptionLabel')}</span>
                                     <VoiceInput onTranscript={(text) => setNewModel(prev => ({ ...prev, description: prev.description ? prev.description + " " + text : text }))} />
                                 </label>
                                 <textarea

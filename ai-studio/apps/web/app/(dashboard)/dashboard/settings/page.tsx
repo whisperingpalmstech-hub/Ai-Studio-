@@ -161,7 +161,7 @@ export default function SettingsPage() {
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'white' }}>
-                    Settings
+                    {t("settingsTitle")}
                 </h1>
                 <p style={{ color: '#9ca3af' }}>
                     {t("settingsDesc")}
