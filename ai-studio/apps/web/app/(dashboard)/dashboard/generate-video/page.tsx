@@ -30,6 +30,7 @@ import { useJobRealtime } from "../../../../lib/useJobRealtime";
 const MODES = [
     { id: "t2v", label: "Text to Video", icon: Video },
     { id: "i2v", label: "Image to Video", icon: Film },
+    { id: "video_inpaint", label: "Video Auto-Mask", icon: Wand2 },
 ];
 
 const SAMPLERS = [
@@ -54,6 +55,7 @@ const ASPECT_RATIOS = [
 export default function GenerateVideoPage() {
     const [mode, setMode] = useState("t2v");
     const [prompt, setPrompt] = useState("");
+    const [maskPrompt, setMaskPrompt] = useState("");
     const [negativePrompt, setNegativePrompt] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -73,6 +75,8 @@ export default function GenerateVideoPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
+    const [uploadedVideoFilename, setUploadedVideoFilename] = useState<string | null>(null);
+    const [inputVideo, setInputVideo] = useState<string | null>(null);
 
     // Persist prompt and settings to localStorage
     useEffect(() => {
@@ -112,7 +116,7 @@ export default function GenerateVideoPage() {
                 .select('*')
                 .eq('user_id', userId)
                 .in('status', ['pending', 'processing', 'queued'])
-                .in('type', ['t2v', 'i2v']) // Only video jobs
+                .in('type', ['t2v', 'i2v', 'video_inpaint']) // Only video jobs
                 .gt('created_at', fifteenMinutesAgo)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -259,9 +263,10 @@ export default function GenerateVideoPage() {
         }
     }, [lastMessage]);
 
-    // Image Upload State
+    // Image/Video Upload State
     const [inputImage, setInputImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
     const [videoFrames, setVideoFrames] = useState(81);
     const [videoFps, setVideoFps] = useState(16);
     const [availableModels, setAvailableModels] = useState<any[]>([]);
@@ -275,7 +280,8 @@ export default function GenerateVideoPage() {
             // Map frontend mode to registry type
             const typeMap: any = {
                 "t2v": "text_to_video",
-                "i2v": "image_to_video"
+                "i2v": "image_to_video",
+                "video_inpaint": "image_to_video" // Reuse video-capable models
             };
             const currentWorkflow = typeMap[mode];
 
@@ -291,8 +297,11 @@ export default function GenerateVideoPage() {
                     const meta = m.metadata || {};
                     const compatible = meta.compatibleWorkflows || [];
 
-                    // Fallback for older data: search for "wan" if no metadata exists
+                    // Fallback for older data: search for "wan" or inpaint if no metadata exists
                     if (compatible.length === 0) {
+                        if (mode === 'video_inpaint') {
+                            return m.name.toLowerCase().includes('inpaint') || m.file_path.toLowerCase().includes('inpaint');
+                        }
                         return m.name.toLowerCase().includes('wan') || m.file_path.toLowerCase().includes('wan');
                     }
 
@@ -304,7 +313,8 @@ export default function GenerateVideoPage() {
                 // Set default Wan model based on mode
                 const defaultModel = filtered.find(m =>
                     (mode === "t2v" && (m.name.includes("T2V") || m.metadata?.compatibleWorkflows?.includes("text_to_video"))) ||
-                    (mode === "i2v" && (m.name.includes("I2V") || m.metadata?.compatibleWorkflows?.includes("image_to_video")))
+                    (mode === "i2v" && (m.name.includes("I2V") || m.metadata?.compatibleWorkflows?.includes("image_to_video"))) ||
+                    (mode === "video_inpaint" && (m.name.includes("Inpaint") || m.metadata?.compatibleWorkflows?.includes("inpaint")))
                 );
                 setSelectedModel(defaultModel || filtered[0]);
             }
@@ -339,26 +349,33 @@ export default function GenerateVideoPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        const isVideo = file.type.startsWith("video/");
+
         // 1. Preview
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            setInputImage(event.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+        if (isVideo) {
+            setInputVideo(URL.createObjectURL(file));
+        } else {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setInputImage(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
 
         // 2. Enterprise Upload
         setIsUploading(true);
-        setStatusMessage("Uploading cinematic base...");
+        setStatusMessage(isVideo ? "Uploading cinematic sequence..." : "Uploading cinematic base...");
 
         try {
             const formData = new FormData();
-            formData.append("image", file);
+            formData.append(isVideo ? "video" : "image", file);
 
             const supabase = getSupabaseClient();
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
 
-            const response = await fetch("http://localhost:4000/api/v1/uploads/image", {
+            const uploadEndpoint = isVideo ? "http://localhost:4000/api/v1/uploads/video" : "http://localhost:4000/api/v1/uploads/image";
+            const response = await fetch(uploadEndpoint, {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${session.access_token}`
@@ -369,8 +386,12 @@ export default function GenerateVideoPage() {
             const data = await response.json();
             if (data.success) {
                 console.log(`✅ Upload success: ${data.filename}`);
-                setUploadedFilename(data.filename);
-                setStatusMessage("Reference image uploaded.");
+                if (isVideo) {
+                    setUploadedVideoFilename(data.filename);
+                } else {
+                    setUploadedFilename(data.filename);
+                }
+                setStatusMessage(isVideo ? "Production sequence uploaded." : "Reference image uploaded.");
             } else {
                 throw new Error(data.message || "Upload failed");
             }
@@ -385,13 +406,16 @@ export default function GenerateVideoPage() {
     const handleGenerate = async () => {
         if (!prompt.trim() && mode === "t2v") return;
         if (!inputImage && mode === "i2v") return;
+        if (!inputVideo && mode === "video_inpaint") return;
         if (isUploading) return;
 
         setIsGenerating(true);
         setGeneratedImage(null);
         setProgress(0);
 
-        const initialStatus = mode === 't2v' ? 'Starting video generation...' : 'Animating your image...';
+        const initialStatus = mode === 't2v' ? 'Starting video generation...' :
+            mode === 'video_inpaint' ? 'Analyzing video for masking...' :
+                'Animating your image...';
         setStatusMessage(initialStatus);
 
         try {
@@ -409,6 +433,9 @@ export default function GenerateVideoPage() {
                     seed: seed === -1 ? undefined : seed,
                     image: inputImage,
                     image_filename: uploadedFilename,
+                    video_filename: uploadedVideoFilename,
+                    auto_mask: mode === "video_inpaint",
+                    mask_prompt: mode === "video_inpaint" ? (maskPrompt || prompt) : undefined,
                     video_frames: videoFrames,
                     fps: videoFps,
                     model_id: selectedModel?.file_path
@@ -432,7 +459,7 @@ export default function GenerateVideoPage() {
                 setCredits(data.credits);
             }
             if (data.creditCost) {
-                enterpriseToast.success("Job Queued", `Video generation started • ${data.creditCost} credits deducted`);
+                enterpriseToast.success("Job Queued", `Video production started • ${data.creditCost} credits deducted`);
             }
 
         } catch (error: any) {
@@ -666,16 +693,16 @@ export default function GenerateVideoPage() {
                         </div>
                     </div>
 
-                    {/* Image Upload (for I2V) */}
-                    {mode === "i2v" && (
+                    {/* Image/Video Upload (for I2V and Video Inpaint) */}
+                    {(mode === "i2v" || mode === "video_inpaint") && (
                         <div style={cardStyle}>
                             <label style={labelStyle}>
                                 <Upload size={16} color="#a855f7" />
-                                Base Image for Animation
+                                {mode === "video_inpaint" ? "Production Video for Masking" : "Base Image for Animation"}
                             </label>
 
                             <div
-                                onClick={() => fileInputRef.current?.click()}
+                                onClick={() => mode === "video_inpaint" ? videoInputRef.current?.click() : fileInputRef.current?.click()}
                                 style={{
                                     border: '2px dashed rgba(168, 85, 247, 0.3)',
                                     borderRadius: '1rem',
@@ -686,7 +713,7 @@ export default function GenerateVideoPage() {
                                     justifyContent: 'center',
                                     gap: '1.25rem',
                                     cursor: 'pointer',
-                                    background: inputImage ? 'black' : 'rgba(168, 85, 247, 0.03)',
+                                    background: (inputImage || inputVideo) ? 'black' : 'rgba(168, 85, 247, 0.03)',
                                     position: 'relative',
                                     overflow: 'hidden',
                                     minHeight: '260px',
@@ -695,8 +722,12 @@ export default function GenerateVideoPage() {
                                 onMouseEnter={(e) => e.currentTarget.style.borderColor = '#a855f7'}
                                 onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)'}
                             >
-                                {inputImage ? (
-                                    <img src={inputImage} alt="Input" style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '0.5rem' }} />
+                                {(mode === "video_inpaint" ? inputVideo : inputImage) ? (
+                                    mode === "video_inpaint" ? (
+                                        <video src={inputVideo!} style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '0.5rem' }} autoPlay muted loop />
+                                    ) : (
+                                        <img src={inputImage!} alt="Input" style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '0.5rem' }} />
+                                    )
                                 ) : (
                                     <>
                                         <div style={{
@@ -712,7 +743,9 @@ export default function GenerateVideoPage() {
                                             <Upload size={32} />
                                         </div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <span style={{ color: 'white', fontWeight: 600, display: 'block' }}>Drop your image here</span>
+                                            <span style={{ color: 'white', fontWeight: 600, display: 'block' }}>
+                                                Drop your {mode === "video_inpaint" ? "video" : "image"} here
+                                            </span>
                                             <span style={{ color: '#a78bfa', fontSize: '0.875rem' }}>or click to browse library</span>
                                         </div>
                                     </>
@@ -724,7 +757,33 @@ export default function GenerateVideoPage() {
                                     onChange={handleFileUpload}
                                     style={{ display: 'none' }}
                                 />
+                                <input
+                                    type="file"
+                                    ref={videoInputRef}
+                                    accept="video/*"
+                                    onChange={handleFileUpload}
+                                    style={{ display: 'none' }}
+                                />
                             </div>
+                        </div>
+                    )}
+
+                    {/* Mask Prompt (for Video Inpaint) */}
+                    {mode === "video_inpaint" && (
+                        <div style={cardStyle}>
+                            <label style={labelStyle}>
+                                <Brush size={16} color="#a855f7" />
+                                What to Hide/Mask?
+                            </label>
+                            <textarea
+                                value={maskPrompt}
+                                onChange={(e) => setMaskPrompt(e.target.value)}
+                                placeholder="Describe what the AI should find and mask... e.g., 'the person's red shirt', 'the car in background'"
+                                style={{ ...textAreaStyle, height: '4rem' }}
+                            />
+                            <p style={{ color: '#a78bfa', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                                Smart AI detection will automatically find and mask these objects across all frames.
+                            </p>
                         </div>
                     )}
 
@@ -732,12 +791,12 @@ export default function GenerateVideoPage() {
                     <div style={cardStyle}>
                         <label style={labelStyle}>
                             <Sparkles size={16} color="#a855f7" />
-                            Motion Prompt
+                            {mode === "video_inpaint" ? "Refinement / Inpaint Prompt" : "Motion Prompt"}
                         </label>
                         <textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="Describe the action and atmosphere... e.g., 'A high-speed chase through a neon-drenched futuristic city, cinematic camera tracking, heavy rain falling, realistic motion blur...'"
+                            placeholder={mode === "video_inpaint" ? "What to put in the masked area? e.g., 'a blue denium jacket', 'a futuristic electric car'" : "Describe the action and atmosphere... e.g., 'A high-speed chase through a neon-drenched futuristic city, cinematic camera tracking, heavy rain falling, realistic motion blur...'"}
                             style={{ ...textAreaStyle, height: '9rem', marginBottom: '1rem' }}
                         />
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

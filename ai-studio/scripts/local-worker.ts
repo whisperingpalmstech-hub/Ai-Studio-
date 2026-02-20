@@ -113,12 +113,11 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
             keywords: ['shirt', 't-shirt', 'tshirt', 'blouse', 'top', 'sweater', 'hoodie', 'jacket', 'coat',
                 'vest', 'kurta', 'polo', 'tank top', 'crop top', 'cardigan', 'blazer', 'sweatshirt',
                 'jersey', 'tunic', 'pullover', 'windbreaker', 'parka', 'fleece'],
-            // BROAD DETECTION: The user wants to REPLACE what's in the image, not find what they typed.
-            // We don't know if the image has a shirt, saree, or dress — use broad terms!
-            dinoParts: ['shirt', 'clothing', 'garment', 'top'],
+            // SPECIFIC DETECTION: Avoid "clothing/garment" as it often detects the whole person.
+            dinoParts: ['shirt', 'top', 'jacket', 'sweater'],
             denoise: 0.55,
-            threshold: 0.25,
-            dilation: 8,
+            threshold: 0.35, // Higher threshold for better isolation
+            dilation: 10,
             negatives: 'wrong neckline, mismatched sleeves',
             isClothing: true
         },
@@ -126,10 +125,10 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
             keywords: ['jeans', 'pants', 'trousers', 'shorts', 'skirt', 'leggings', 'salwar', 'pajama',
                 'chinos', 'joggers', 'cargo pants', 'culottes', 'palazzo', 'flares', 'capri',
                 'bermuda', 'sweatpants', 'track pants', 'dhoti'],
-            dinoParts: ['pants', 'trousers', 'clothing'],
+            dinoParts: ['pants', 'trousers', 'jeans', 'skirt'],
             denoise: 0.55,
-            threshold: 0.25,
-            dilation: 8,
+            threshold: 0.35,
+            dilation: 10,
             negatives: 'wrong leg shape',
             isClothing: true
         },
@@ -139,10 +138,10 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'casual', 'formal', 'modern', 'ethnic', 'uniform', 'costume', 'apparel',
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
-            dinoParts: ['dress', 'clothing', 'garment', 'outfit'],
+            dinoParts: ['dress', 'gown', 'outfit', 'suit'],
             denoise: 0.55,
-            threshold: 0.22,
-            dilation: 10,
+            threshold: 0.3,
+            dilation: 12,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing',
             isClothing: true
         },
@@ -705,6 +704,29 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["noise_mask"] = node.data.noise_mask !== false;
                 break;
 
+            // Video Production Nodes (VHS & AnimateDiff)
+            case "loadVideo":
+                class_type = "VHS_LoadVideo";
+                inputs["video"] = node.data.filename || "input.mp4";
+                inputs["force_rate"] = 0;
+                inputs["force_size"] = "Custom";
+                inputs["custom_width"] = node.data.width || 768;
+                inputs["custom_height"] = node.data.height || 432;
+                inputs["frame_load_cap"] = node.data.frame_load_cap || 16;
+                inputs["skip_first_frames"] = 0;
+                inputs["select_every_nth"] = 1;
+                break;
+            case "adLoader":
+                class_type = "ADE_AnimateDiffLoader";
+                inputs["model_name"] = node.data.model || "mm_sdxl_v10_beta.safetensors";
+                break;
+            case "adApply":
+                class_type = "ADE_AnimateDiffApply";
+                break;
+            case "temporalBlend":
+                class_type = "ADE_LatentTemporalBlend";
+                break;
+
             default:
                 class_type = node.type;
                 inputs = { ...node.data };
@@ -1217,8 +1239,6 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_AI.DILATE_MASK, 0], kernel_size: blurKernel, sigma: blurSigma }
         };
 
-        // VAEEncode + SetLatentNoiseMask — handles float masks from SAM correctly
-        // (VAEEncodeForInpaint causes grey ghost with float masks)
         workflow[ID_AI.VAE_ENCODE] = {
             class_type: "VAEEncode",
             inputs: {
@@ -1235,8 +1255,6 @@ const generateSimpleWorkflow = (params: any) => {
             }
         };
 
-        // For clothing-only changes, use lower CFG to prevent the model from 
-        // forcefully following the prompt (which would change the person)
         const cfgForType = analysis.isClothingOnly ? 5.5 : (Number(params.cfg_scale) || 7.0);
 
         workflow[ID_AI.SAMPLER] = {
@@ -1263,6 +1281,157 @@ const generateSimpleWorkflow = (params: any) => {
         workflow[ID_AI.SAVE_IMAGE] = {
             class_type: "SaveImage",
             inputs: { filename_prefix: "AiStudio_AutoInpaint", images: [ID_AI.VAE_DECODE, 0] }
+        };
+    }
+    // Video Auto-Mask: GroundingDINO + SAM masking across video frames (Enterprise Cinematic)
+    else if (type === "video_inpaint") {
+        const analysis = analyzeInpaintPrompt(params.prompt || '', params.negative_prompt || '');
+        const dinoPrompt = params.mask_prompt || analysis.dinoPrompt;
+
+        // Identity protection for video is even more critical
+        const identityProtection = 'different person, changed identity, flickering face, distorted features, changing features, unstable face';
+        let enhancedNegative = (params.negative_prompt || '') + ', ' + identityProtection + ', ' + analysis.negativeAdditions;
+
+        console.log(`🎬 Building CINEMATIC video auto-mask workflow:`);
+        console.log(`   Video: "${params.video_filename}"`);
+        console.log(`   DINO Detect: "${dinoPrompt}"`);
+        console.log(`   Inpaint Prompt: "${params.prompt}"`);
+
+        const ID_VID = {
+            LOAD_VIDEO: "1",
+            DINO_LOADER: "2",
+            SAM_LOADER: "3",
+            DINO_SAM_SEGMENT: "4",
+            MASK_DILATE: "5",
+            MASK_BLUR: "6",
+            CHECKPOINT: "7",
+            PROMPT_POS: "8",
+            PROMPT_NEG: "9",
+            VAE_ENCODE: "10",
+            SET_LATENT_MASK: "11",
+            AD_LOADER: "12",
+            AD_APPLY: "13",
+            SAMPLER: "14",
+            VAE_DECODE: "15",
+            VIDEO_COMBINE: "16"
+        };
+
+        workflow[ID_VID.LOAD_VIDEO] = {
+            class_type: "VHS_LoadVideo",
+            inputs: {
+                video: params.video_filename || "input.mp4",
+                force_rate: 0,
+                force_size: "Custom",
+                custom_width: params.width || 768, // Lower default for stability on 8GB
+                custom_height: params.height || 432,
+                frame_load_cap: params.video_frames || 48, // Limit for 8GB VRAM
+                skip_first_frames: 0,
+                select_every_nth: 1
+            }
+        };
+
+        workflow[ID_VID.DINO_LOADER] = {
+            class_type: "GroundingDinoModelLoader (segment anything)",
+            inputs: { model_name: "GroundingDINO_SwinT_OGC (694MB)" }
+        };
+
+        workflow[ID_VID.SAM_LOADER] = {
+            class_type: "SAMModelLoader (segment anything)",
+            inputs: { model_name: "sam_vit_b (375MB)" } // Use VIT-B for memory efficiency on 8GB
+        };
+
+        workflow[ID_VID.DINO_SAM_SEGMENT] = {
+            class_type: "GroundingDinoSAMSegment (segment anything)",
+            inputs: {
+                prompt: dinoPrompt,
+                threshold: analysis.dinoThreshold,
+                grounding_dino_model: [ID_VID.DINO_LOADER, 0],
+                sam_model: [ID_VID.SAM_LOADER, 0],
+                image: [ID_VID.LOAD_VIDEO, 0]
+            }
+        };
+
+        workflow[ID_VID.MASK_DILATE] = {
+            class_type: "ImpactDilateMask",
+            inputs: { mask: [ID_VID.DINO_SAM_SEGMENT, 1], dilation: analysis.maskDilation + 4 }
+        };
+
+        workflow[ID_VID.MASK_BLUR] = {
+            class_type: "ImpactGaussianBlurMask",
+            inputs: { mask: [ID_VID.MASK_DILATE, 0], kernel_size: 15, sigma: 6 }
+        };
+
+        workflow[ID_VID.CHECKPOINT] = {
+            class_type: "CheckpointLoaderSimple",
+            inputs: { ckpt_name: params.model_id || "sd_xl_base_1.0.safetensors" }
+        };
+
+        workflow[ID_VID.PROMPT_POS] = {
+            class_type: "CLIPTextEncode",
+            inputs: { text: params.prompt, clip: [ID_VID.CHECKPOINT, 1] }
+        };
+
+        workflow[ID_VID.PROMPT_NEG] = {
+            class_type: "CLIPTextEncode",
+            inputs: { text: enhancedNegative, clip: [ID_VID.CHECKPOINT, 1] }
+        };
+
+        workflow[ID_VID.VAE_ENCODE] = {
+            class_type: "VAEEncode",
+            inputs: { pixels: [ID_VID.LOAD_VIDEO, 0], vae: [ID_VID.CHECKPOINT, 2] }
+        };
+
+        workflow[ID_VID.SET_LATENT_MASK] = {
+            class_type: "SetLatentNoiseMask",
+            inputs: { samples: [ID_VID.VAE_ENCODE, 0], mask: [ID_VID.MASK_BLUR, 0] }
+        };
+
+        // AnimateDiff for temporal stability during inpainting
+        workflow[ID_VID.AD_LOADER] = {
+            class_type: "ADE_AnimateDiffLoader",
+            inputs: { model_name: "mm_sdxl_v10_beta.safetensors" }
+        };
+
+        workflow[ID_VID.AD_APPLY] = {
+            class_type: "ADE_AnimateDiffApply",
+            inputs: {
+                model: [ID_VID.CHECKPOINT, 0],
+                m_models: [ID_VID.AD_LOADER, 0]
+            }
+        };
+
+        workflow[ID_VID.SAMPLER] = {
+            class_type: "KSampler",
+            inputs: {
+                model: [ID_VID.AD_APPLY, 0],
+                positive: [ID_VID.PROMPT_POS, 0],
+                negative: [ID_VID.PROMPT_NEG, 0],
+                latent_image: [ID_VID.SET_LATENT_MASK, 0],
+                seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
+                steps: 25,
+                cfg: 6.0,
+                sampler_name: "dpmpp_2m",
+                scheduler: "karras",
+                denoise: analysis.isClothingOnly ? 0.60 : 0.70
+            }
+        };
+
+        workflow[ID_VID.VAE_DECODE] = {
+            class_type: "VAEDecode",
+            inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.CHECKPOINT, 2] }
+        };
+
+        workflow[ID_VID.VIDEO_COMBINE] = {
+            class_type: "VHS_VideoCombine",
+            inputs: {
+                images: [ID_VID.VAE_DECODE, 0],
+                frame_rate: params.fps || 12,
+                loop_count: 0,
+                filename_prefix: "AiStudio_VideoInpaint",
+                format: "video/h264-mp4",
+                pix_fmt: "yuv420p",
+                save_output: true
+            }
         };
     }
 
@@ -1307,39 +1476,72 @@ async function processJob(job: any) {
         let maskFilename = job.params.mask_filename;
 
         // Strict Enterprise Validation: Ensure required files exist on disk
-        if (["img2img", "inpaint", "upscale", "i2v"].includes(job.type)) {
-            if (!imageFilename) {
+        if (["img2img", "inpaint", "upscale", "i2v", "video_inpaint"].includes(job.type)) {
+            let filenameToVerify = "";
+            let storageSubfolder = "inputs";
+
+            if (job.type === "video_inpaint" || job.type === "v2v") {
+                filenameToVerify = job.params.video_filename;
+                storageSubfolder = "videos"; // Or wherever videos are stored
+                // If video_filename is missing, check if it's in image_filename (sometimes used interchangeably in UI)
+                if (!filenameToVerify && job.params.image_filename?.endsWith('.mp4')) {
+                    filenameToVerify = job.params.image_filename;
+                }
+            } else {
+                filenameToVerify = imageFilename;
+            }
+
+            if (!filenameToVerify) {
                 // Legacy Fallback (Migration Period Only): Upload if dataURL exists but filename is missing
                 if (job.params.image && typeof job.params.image === 'string' && job.params.image.startsWith("data:image")) {
                     imageFilename = `${job.id}.png`;
+                    filenameToVerify = imageFilename;
                     console.log(`📡 Legacy Upload Detected: Processing base64 as ${imageFilename}`);
                     await uploadImageToComfy(job.params.image, imageFilename);
                 } else if (job.params.image_url && typeof job.params.image_url === 'string' && job.params.image_url.startsWith("data:image")) {
                     imageFilename = `${job.id}.png`;
+                    filenameToVerify = imageFilename;
                     console.log(`📡 Legacy Upload Detected: Processing base64 image_url as ${imageFilename}`);
                     await uploadImageToComfy(job.params.image_url, imageFilename);
                 } else {
-                    throw new Error(`Enterprise Integrity Error: Job type '${job.type}' requires an image_filename but none was provided and no source data found.`);
+                    throw new Error(`Enterprise Integrity Error: Job type '${job.type}' requires an input file but none was provided.`);
                 }
             }
 
-            const imagePath = path.join(COMFYUI_INPUT_DIR, imageFilename);
-            if (!fs.existsSync(imagePath)) {
-                console.log(`☁️ File ${imageFilename} missing locally. Checking Supabase Storage...`);
-                // Try to find it in the user's inputs folder
-                const storagePath = `inputs/${job.user_id}/${imageFilename}`;
-                const { data, error } = await supabase.storage.from('assets').download(storagePath);
+            const filePath = path.join(COMFYUI_INPUT_DIR, filenameToVerify);
+            if (!fs.existsSync(filePath)) {
+                console.log(`☁️ File ${filenameToVerify} missing locally. Checking Supabase Storage...`);
+                // Check multiple possible paths in storage
+                const possiblePaths = [
+                    `inputs/${job.user_id}/${filenameToVerify}`,
+                    `videos/${job.user_id}/${filenameToVerify}`,
+                    `uploads/${job.user_id}/${filenameToVerify}`
+                ];
 
-                if (error || !data) {
-                    console.error(`❌ Cloud Retrieval Failed for ${storagePath}:`, error?.message);
-                    throw new Error(`Enterprise File System Error: Required input file '${imageFilename}' missing from local storage and cloud storage.`);
+                let data = null;
+                for (const storagePath of possiblePaths) {
+                    console.log(`   Trying storage path: ${storagePath}`);
+                    const { data: downloadedData, error } = await supabase.storage.from('assets').download(storagePath);
+                    if (!error && downloadedData) {
+                        data = downloadedData;
+                        break;
+                    }
+                }
+
+                if (!data) {
+                    throw new Error(`Enterprise File System Error: Required input file '${filenameToVerify}' missing from local storage and cloud storage.`);
                 }
 
                 const buffer = Buffer.from(await data.arrayBuffer());
-                fs.writeFileSync(imagePath, buffer);
-                console.log(`✅ Successfully synced ${imageFilename} from cloud to local storage.`);
+                fs.writeFileSync(filePath, buffer);
+                console.log(`✅ Successfully synced ${filenameToVerify} from cloud to local storage.`);
             }
-            console.log(`✅ Input Verified: ${imageFilename} exists and is ready.`);
+            console.log(`✅ Input Verified: ${filenameToVerify} exists and is ready.`);
+
+            // Update imageFilename if it was for a video job
+            if (job.type === "video_inpaint") {
+                imageFilename = filenameToVerify;
+            }
         }
 
         // Handle Mask for Inpainting

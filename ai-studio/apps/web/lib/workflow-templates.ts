@@ -296,5 +296,52 @@ export const WORKFLOW_TEMPLATES = [
             { id: 'e1-12v', source: '1', target: '12', sourceHandle: 'vae', targetHandle: 'vae' },
             { id: 'e12-13i', source: '12', target: '13', sourceHandle: 'image', targetHandle: 'images' }
         ]
+    },
+    {
+        id: 'tpl-v2v-cinematic',
+        name: 'Cinematic Video-to-Video',
+        description: 'The ultimate professional V2V pipeline. Maintain structural integrity with ControlNet and temporal stability with AnimateDiff.',
+        category: 'Professional Video',
+        guide: {
+            summary: 'Redraws a video while preserving motion and structure.',
+            inputs: 'Source Video, SDXL/SD1.5 Model, Strength-adjusted Prompts.',
+            params: 'Denoise (0.4-0.6), ControlNet Weight (0.6-0.8), AnimateDiff Context.',
+            tips: 'Use "Depth" for structure and "Tile" for texture preservation. Set Denoise low to keep original actors/sets.'
+        },
+        nodes: [
+            { id: '1', type: 'loadVideo', position: { x: 50, y: 50 }, data: { label: 'Source Video', frame_load_cap: 32 } },
+            { id: '2', type: 'loadModel', position: { x: 50, y: 300 }, data: { label: 'Main Model (SDXL)', model: 'sd_xl_base_1.0.safetensors' } },
+            { id: '3', type: 'prompt', position: { x: 400, y: 50 }, data: { label: 'Positive Prompt', prompt: 'cinematic style, high detail, masterpiece' } },
+            { id: '4', type: 'prompt', position: { x: 400, y: 200 }, data: { label: 'Negative Prompt', prompt: 'flickering, unstable, blurry, low res' } },
+            { id: '5', type: 'adLoader', position: { x: 50, y: 550 }, data: { label: 'AnimateDiff Module', model: 'mm_sdxl_v10_beta.safetensors' } },
+            { id: '6', type: 'adApply', position: { x: 400, y: 400 }, data: { label: 'AnimateDiff Context' } },
+            { id: '7', type: 'controlNet', position: { x: 750, y: 50 }, data: { label: 'Depth Control', model: 'controlnet-depth-sdxl-1.0.safetensors', strength: 0.7 } },
+            { id: '8', type: 'controlNet', position: { x: 750, y: 250 }, data: { label: 'Tile Control', model: 'controlnet-tile-sdxl-1.0.safetensors', strength: 0.5 } },
+            { id: '9', type: 'vaeEncode', position: { x: 400, y: 600 }, data: { label: 'VAE Encode' } },
+            { id: '10', type: 'sampler', position: { x: 1100, y: 50 }, data: { label: 'Cinematic KSampler', steps: 25, cfg: 6.5, denoise: 0.5, sampler: 'dpmpp_2m', scheduler: 'karras' } },
+            { id: '11', type: 'temporalBlend', position: { x: 1400, y: 50 }, data: { label: 'Temporal Smoothing' } },
+            { id: '12', type: 'vaeDecode', position: { x: 1700, y: 50 }, data: { label: 'VAE Decode' } },
+            { id: '13', type: 'videoCombine', position: { x: 2000, y: 50 }, data: { label: 'Save Cinematic Video', fps: 12 } }
+        ],
+        edges: [
+            { id: 'e1-9', source: '1', target: '9', sourceHandle: 'image', targetHandle: 'pixels' },
+            { id: 'e2-9', source: '2', target: '9', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e9-10', source: '9', target: '10', sourceHandle: 'latent', targetHandle: 'latent_in' },
+            { id: 'e5-6', source: '5', target: '6', sourceHandle: 'model', targetHandle: 'm_models' },
+            { id: 'e2-6', source: '2', target: '6', sourceHandle: 'model', targetHandle: 'model' },
+            { id: 'e6-10', source: '6', target: '10', sourceHandle: 'model', targetHandle: 'model' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e2-4', source: '2', target: '4', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e3-7', source: '3', target: '7', sourceHandle: 'conditioning', targetHandle: 'conditioning_in' },
+            { id: 'e1-7', source: '1', target: '7', sourceHandle: 'image', targetHandle: 'image' },
+            { id: 'e7-8', source: '7', target: '8', sourceHandle: 'conditioning_out', targetHandle: 'conditioning_in' },
+            { id: 'e1-8', source: '1', target: '8', sourceHandle: 'image', targetHandle: 'image' },
+            { id: 'e8-10', source: '8', target: '10', sourceHandle: 'conditioning_out', targetHandle: 'positive' },
+            { id: 'e4-10', source: '4', target: '10', sourceHandle: 'conditioning', targetHandle: 'negative' },
+            { id: 'e10-11', source: '10', target: '11', sourceHandle: 'latent_out', targetHandle: 'latent' },
+            { id: 'e11-12', source: '11', target: '12', sourceHandle: 'latent', targetHandle: 'samples' },
+            { id: 'e2-12', source: '2', target: '12', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e12-13', source: '12', target: '13', sourceHandle: 'image', targetHandle: 'images' }
+        ]
     }
 ];
