@@ -1423,10 +1423,14 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { samples: [ID_VID.VAE_ENCODE, 0], mask: [ID_VID.MASK_BLUR, 0] }
         };
 
+        // Detect base model for AnimateDiff (SD1.5 vs SDXL)
+        const isSDXL = params.model_id?.toLowerCase().includes('xl') || params.model_id?.toLowerCase().includes('base_1.0');
+        const motionModel = isSDXL ? "mm_sdxl_v10_beta.safetensors" : "mm_sd_v15_v2.ckpt";
+
         // AnimateDiff for temporal stability during inpainting
         workflow[ID_VID.AD_LOADER] = {
             class_type: "ADE_AnimateDiffLoader",
-            inputs: { model_name: "mm_sdxl_v10_beta.safetensors" }
+            inputs: { model_name: motionModel }
         };
 
         workflow[ID_VID.AD_APPLY] = {
