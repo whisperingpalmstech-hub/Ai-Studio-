@@ -1398,9 +1398,16 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_VID.MASK_DILATE, 0], kernel_size: 15, sigma: 6 }
         };
 
+        // SMART CHECKPOINT SELECTION: Ensure we don't try to load a Wan model as a base checkpoint
+        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
+        if (baseCheckpoint.toLowerCase().includes('wan')) {
+            console.log(`⚠️ Model ${baseCheckpoint} is a video model, switching to SDXL for inpainting backbone.`);
+            baseCheckpoint = "sd_xl_base_1.0.safetensors";
+        }
+
         workflow[ID_VID.CHECKPOINT] = {
             class_type: "CheckpointLoaderSimple",
-            inputs: { ckpt_name: params.model_id || "sd_xl_base_1.0.safetensors" }
+            inputs: { ckpt_name: baseCheckpoint }
         };
 
         workflow[ID_VID.PROMPT_POS] = {
@@ -1424,7 +1431,7 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         // Detect base model for AnimateDiff (SD1.5 vs SDXL)
-        const isSDXL = params.model_id?.toLowerCase().includes('xl') || params.model_id?.toLowerCase().includes('base_1.0');
+        const isSDXL = baseCheckpoint.toLowerCase().includes('xl') || baseCheckpoint.toLowerCase().includes('base_1.0');
         const motionModel = isSDXL ? "mm_sdxl_v10_beta.safetensors" : "mm_sd_v15_v2.ckpt";
 
         // AnimateDiff Gen2 Chain for high stability
@@ -1480,7 +1487,9 @@ const generateSimpleWorkflow = (params: any) => {
                 filename_prefix: "AiStudio_VideoInpaint",
                 format: "video/h264-mp4",
                 pix_fmt: "yuv420p",
-                save_output: true
+                save_output: true,
+                pingpong: false,
+                save_metadata: true
             }
         };
     }
