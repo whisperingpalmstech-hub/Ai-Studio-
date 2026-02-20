@@ -8,8 +8,9 @@ const CREDIT_COSTS: Record<string, number> = {
     inpaint: 2,
     upscale: 1,
     txt2vid: 5,
-    img2vid: 5,
-    workflow: 3,
+    video_inpaint: 5,
+    t2v: 5,
+    i2v: 5
 };
 
 export async function POST(request: Request) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
             num_inference_steps = 30,
             guidance_scale = 7.5,
             width = 1024,
-            height = 1024,
+            height = 576,
             seed = -1,
             sampler = "euler_a",
             model_id,
@@ -111,6 +112,7 @@ export async function POST(request: Request) {
             mask_url: body.mask,
             mask: body.mask,
             image_filename: body.image_filename,
+            video_filename: body.video_filename,
             mask_filename: body.mask_filename,
             auto_mask: body.auto_mask || false,
             mask_prompt: body.mask_prompt,

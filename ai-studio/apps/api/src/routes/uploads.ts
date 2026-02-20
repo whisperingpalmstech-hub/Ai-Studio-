@@ -29,13 +29,16 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for high-end video
     fileFilter: (req, file, cb) => {
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        const allowedTypes = [
+            "image/jpeg", "image/png", "image/webp",
+            "video/mp4", "video/webm", "image/gif"
+        ];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error("Invalid file type. Only JPEG, PNG and WEBP are allowed."));
+            cb(new Error("Invalid file type. Only JPEG, PNG, WEBP, MP4, WEBM and GIF are allowed."));
         }
     },
 });
@@ -47,8 +50,20 @@ router.post("/image", upload.single("image"), (req: AuthenticatedRequest, res: R
     }
 
     console.log(`💾 Enterprise Upload: Received ${req.file.filename} (${req.file.size} bytes)`);
-    console.log(`📍 Saved to: ${req.file.path}`);
+    res.json({
+        success: true,
+        filename: req.file.filename,
+        path: req.file.path,
+    });
+});
 
+// POST /api/v1/uploads/video
+router.post("/video", upload.single("video"), (req: AuthenticatedRequest, res: Response) => {
+    if (!req.file) {
+        throw new BadRequestError("No video file uploaded.");
+    }
+
+    console.log(`🎬 Enterprise Video Upload: Received ${req.file.filename} (${req.file.size} bytes)`);
     res.json({
         success: true,
         filename: req.file.filename,

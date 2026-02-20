@@ -406,7 +406,19 @@ export default function GenerateVideoPage() {
     const handleGenerate = async () => {
         if (!prompt.trim() && mode === "t2v") return;
         if (!inputImage && mode === "i2v") return;
-        if (!inputVideo && mode === "video_inpaint") return;
+
+        // Critical: Ensure video is uploaded before starting generation
+        if (mode === "video_inpaint") {
+            if (!inputVideo) {
+                enterpriseToast.error("Missing Video", "Please upload a production video for masking.");
+                return;
+            }
+            if (!uploadedVideoFilename) {
+                enterpriseToast.error("Upload Incomplete", "Please wait for the video to finish uploading before generating.");
+                return;
+            }
+        }
+
         if (isUploading) return;
 
         setIsGenerating(true);
