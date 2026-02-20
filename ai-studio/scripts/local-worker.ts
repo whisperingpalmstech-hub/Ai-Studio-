@@ -1353,15 +1353,22 @@ const generateSimpleWorkflow = (params: any) => {
             VIDEO_COMBINE: "16"
         };
 
+        // SMART CHECKPOINT SELECTION: Ensure we don't try to load a Wan model as a base checkpoint
+        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
+        if (baseCheckpoint.toLowerCase().includes('wan')) {
+            console.log(`⚠️ Model ${baseCheckpoint} is a video model, switching to SDXL for inpainting backbone.`);
+            baseCheckpoint = "sd_xl_base_1.0.safetensors";
+        }
+
         workflow[ID_VID.LOAD_VIDEO] = {
             class_type: "VHS_LoadVideo",
             inputs: {
                 video: params.video_filename || "input.mp4",
                 force_rate: 0,
                 force_size: "Custom",
-                custom_width: params.width || 768, // Lower default for stability on 8GB
-                custom_height: params.height || 432,
-                frame_load_cap: params.video_frames || 48, // Limit for 8GB VRAM
+                custom_width: 768, // Hardcoded for 8GB VRAM safety with AnimateDiff
+                custom_height: 448, // Multiple of 64
+                frame_load_cap: params.video_frames || (baseCheckpoint.includes('xl') ? 64 : 96),
                 skip_first_frames: 0,
                 select_every_nth: 1
             }
@@ -1398,12 +1405,6 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { mask: [ID_VID.MASK_DILATE, 0], kernel_size: 15, sigma: 6 }
         };
 
-        // SMART CHECKPOINT SELECTION: Ensure we don't try to load a Wan model as a base checkpoint
-        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
-        if (baseCheckpoint.toLowerCase().includes('wan')) {
-            console.log(`⚠️ Model ${baseCheckpoint} is a video model, switching to SDXL for inpainting backbone.`);
-            baseCheckpoint = "sd_xl_base_1.0.safetensors";
-        }
 
         workflow[ID_VID.CHECKPOINT] = {
             class_type: "CheckpointLoaderSimple",
@@ -1421,8 +1422,15 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID_VID.VAE_ENCODE] = {
-            class_type: "VAEEncode",
-            inputs: { pixels: [ID_VID.LOAD_VIDEO, 0], vae: [ID_VID.CHECKPOINT, 2] }
+            class_type: "VAEEncodeTiled",
+            inputs: {
+                pixels: [ID_VID.LOAD_VIDEO, 0],
+                vae: [ID_VID.CHECKPOINT, 2],
+                tile_size: 512,
+                overlap: 64,
+                temporal_size: 64,
+                temporal_overlap: 8
+            }
         };
 
         workflow[ID_VID.SET_LATENT_MASK] = {
@@ -1451,7 +1459,7 @@ const generateSimpleWorkflow = (params: any) => {
         workflow[ID_CONTEXT] = {
             class_type: "ADE_LoopedUniformContextOptions",
             inputs: {
-                context_length: 16,
+                context_length: 12, // Reduced from 16 for 8GB VRAM safety
                 context_stride: 1,
                 context_overlap: 4,
                 closed_loop: false
@@ -1486,8 +1494,15 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID_VID.VAE_DECODE] = {
-            class_type: "VAEDecode",
-            inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.CHECKPOINT, 2] }
+            class_type: "VAEDecodeTiled",
+            inputs: {
+                samples: [ID_VID.SAMPLER, 0],
+                vae: [ID_VID.CHECKPOINT, 2],
+                tile_size: 512,
+                overlap: 64,
+                temporal_size: 64,
+                temporal_overlap: 8
+            }
         };
 
         workflow[ID_VID.VIDEO_COMBINE] = {
