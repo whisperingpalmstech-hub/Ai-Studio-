@@ -23,6 +23,7 @@ import {
 import { useState, useEffect } from "react";
 import { useCredits } from "@/lib/hooks/use-credits";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { useI18n } from "@/lib/i18n";
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -43,6 +44,7 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const { language, setLanguage, t } = useI18n();
     const pathname = usePathname();
     const { credits, tier, loading, refresh } = useCredits();
     const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
@@ -242,11 +244,36 @@ export default function DashboardLayout({
                             borderRadius: "0.5rem",
                             cursor: "pointer",
                             transition: "all 0.2s ease",
+                            marginBottom: "0.5rem"
                         }}
                     >
                         <CreditCard style={{ width: "0.75rem", height: "0.75rem" }} />
                         {tier === "pro" ? "Manage Plan" : "Upgrade Plan"}
                     </button>
+
+                    {/* Language Selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontWeight: 500, textTransform: 'uppercase' }}>UI Lang:</span>
+                        <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value as any)}
+                            style={{
+                                flex: 1,
+                                backgroundColor: 'rgba(15, 15, 35, 0.8)',
+                                color: 'white',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                borderRadius: '0.375rem',
+                                padding: '0.125rem 0.25rem',
+                                fontSize: '0.75rem',
+                                outline: 'none',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <option value="en">English</option>
+                            <option value="hi">हिंदी</option>
+                            <option value="mr">मराठी</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

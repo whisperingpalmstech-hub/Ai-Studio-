@@ -21,6 +21,7 @@ import {
     Plus,
     Check
 } from "lucide-react";
+import { VoiceInput } from "@/components/ui/VoiceInput";
 
 interface Model {
     id: string;
@@ -521,7 +522,10 @@ export default function ModelsPage() {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#9ca3af', marginBottom: '0.5rem' }}>Description</label>
+                                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 500, color: '#9ca3af', marginBottom: '0.5rem' }}>
+                                    <span>Description</span>
+                                    <VoiceInput onTranscript={(text) => setNewModel(prev => ({ ...prev, description: prev.description ? prev.description + " " + text : text }))} />
+                                </label>
                                 <textarea
                                     value={newModel.description}
                                     onChange={(e) => setNewModel({ ...newModel, description: e.target.value })}

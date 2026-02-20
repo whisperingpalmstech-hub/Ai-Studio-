@@ -26,6 +26,8 @@ import {
 import { getSupabaseClient } from "../../../../lib/supabase/client";
 import { useWebSocket } from "../../../../lib/useWebSocket";
 import { useJobRealtime } from "../../../../lib/useJobRealtime";
+import { VoiceInput } from "@/components/ui/VoiceInput";
+import { I18nProvider, useI18n } from "../../../../lib/i18n";
 
 const MODES = [
     { id: "t2v", label: "Text to Video", icon: Video },
@@ -53,6 +55,7 @@ const ASPECT_RATIOS = [
 ];
 
 export default function GenerateVideoPage() {
+    const { t, language, setLanguage } = useI18n();
     const [mode, setMode] = useState("t2v");
     const [prompt, setPrompt] = useState("");
     const [maskPrompt, setMaskPrompt] = useState("");
@@ -609,12 +612,12 @@ export default function GenerateVideoPage() {
                                 boxShadow: wsStatus === 'connected' ? '0 0 8px #10b981' : 'none'
                             }} />
                             <span style={{ color: '#e9d5ff', fontWeight: 500 }}>
-                                {wsStatus === 'connected' ? 'Studio Active' : wsStatus === 'connecting' ? 'Connecting...' : 'Studio Offline'}
+                                {wsStatus === 'connected' ? t('studioActive') : wsStatus === 'connecting' ? t('connecting') : t('studioOffline')}
                             </span>
                         </div>
                     </div>
                     <p style={{ color: '#a78bfa' }}>
-                        Produce Hollywood-grade cinematic motion using the state-of-the-art Wan 2.1 engine.
+                        {t('produceHollywood')}
                     </p>
                 </div>
                 <div className="credit-badge" style={{
@@ -631,12 +634,12 @@ export default function GenerateVideoPage() {
                     <Zap size={18} style={{ color: '#a855f7' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1rem', lineHeight: 1 }}>{credits}</span>
-                        <span style={{ color: '#a78bfa', fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Credits left</span>
+                        <span style={{ color: '#a78bfa', fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('creditsLeft')}</span>
                     </div>
                     <div style={{ width: '1px', height: '1.5rem', background: 'rgba(255,255,255,0.1)' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <span style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '1rem', lineHeight: 1 }}>5</span>
-                        <span style={{ color: '#a78bfa', fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cost</span>
+                        <span style={{ color: '#a78bfa', fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('cost')}</span>
                     </div>
                 </div>
             </div>
@@ -675,7 +678,7 @@ export default function GenerateVideoPage() {
                         }}
                     >
                         <m.icon size={18} />
-                        {m.label}
+                        {t(m.id)}
                     </button>
                 ))}
             </div>
@@ -800,12 +803,17 @@ export default function GenerateVideoPage() {
                                 <Brush size={16} color="#a855f7" />
                                 What to Hide/Mask?
                             </label>
-                            <textarea
-                                value={maskPrompt}
-                                onChange={(e) => setMaskPrompt(e.target.value)}
-                                placeholder="Describe what the AI should find and mask... e.g., 'the person's red shirt', 'the car in background'"
-                                style={{ ...textAreaStyle, height: '4rem' }}
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <textarea
+                                    value={maskPrompt}
+                                    onChange={(e) => setMaskPrompt(e.target.value)}
+                                    placeholder="Describe what the AI should find and mask... e.g., 'the person's red shirt', 'the car in background'"
+                                    style={{ ...textAreaStyle, height: '4rem', paddingRight: '3rem' }}
+                                />
+                                <div style={{ position: 'absolute', right: '0.5rem', top: '0.5rem' }}>
+                                    <VoiceInput onTranscript={(text) => setMaskPrompt(prev => prev + text)} />
+                                </div>
+                            </div>
                             <p style={{ color: '#a78bfa', fontSize: '0.75rem', marginTop: '0.5rem' }}>
                                 Smart AI detection will automatically find and mask these objects across all frames.
                             </p>
@@ -816,14 +824,19 @@ export default function GenerateVideoPage() {
                     <div style={cardStyle}>
                         <label style={labelStyle}>
                             <Sparkles size={16} color="#a855f7" />
-                            {mode === "video_inpaint" ? "Refinement / Inpaint Prompt" : "Motion Prompt"}
+                            {mode === "video_inpaint" ? t('refinementPrompt') : t('motionPrompt')}
                         </label>
-                        <textarea
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            placeholder={mode === "video_inpaint" ? "What to put in the masked area? e.g., 'a blue denium jacket', 'a futuristic electric car'" : "Describe the action and atmosphere... e.g., 'A high-speed chase through a neon-drenched futuristic city, cinematic camera tracking, heavy rain falling, realistic motion blur...'"}
-                            style={{ ...textAreaStyle, height: '9rem', marginBottom: '1rem' }}
-                        />
+                        <div style={{ position: 'relative' }}>
+                            <textarea
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                placeholder={mode === "video_inpaint" ? t('refinePlaceholder') : t('motionPlaceholder')}
+                                style={{ ...textAreaStyle, height: '9rem', marginBottom: '1rem', paddingRight: '3rem' }}
+                            />
+                            <div style={{ position: 'absolute', right: '0.5rem', top: '0.5rem' }}>
+                                <VoiceInput onTranscript={(text) => setPrompt(prev => prev + text)} />
+                            </div>
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '0.75rem', color: '#a78bfa' }}>
                                 {prompt.length} tokens used
@@ -1269,7 +1282,7 @@ export default function GenerateVideoPage() {
 
                 <RecentVideosGrid refreshKey={refreshKey} />
             </div>
-        </div>
+        </div >
     );
 }
 

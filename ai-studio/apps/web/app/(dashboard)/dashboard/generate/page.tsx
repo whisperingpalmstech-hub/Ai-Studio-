@@ -27,6 +27,7 @@ import {
 import { getSupabaseClient } from "../../../../lib/supabase/client";
 import { useWebSocket } from "../../../../lib/useWebSocket";
 import { useJobRealtime } from "../../../../lib/useJobRealtime";
+import { VoiceInput } from "@/components/ui/VoiceInput";
 
 const MODES = [
     { id: "txt2img", label: "Text to Image", icon: Sparkles, cost: 1 },
@@ -982,9 +983,12 @@ export default function GeneratePage() {
 
                     {/* Prompt Input */}
                     <div style={cardStyle}>
-                        <label style={labelStyle}>
-                            <Sparkles style={{ width: '1rem', height: '1rem', color: '#6366f1' }} />
-                            Positive Prompt {mode === 'upscale' && '(Optional for detail)'}
+                        <label style={{ ...labelStyle, display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Sparkles style={{ width: '1rem', height: '1rem', color: '#6366f1' }} />
+                                Positive Prompt {mode === 'upscale' && '(Optional for detail)'}
+                            </div>
+                            <VoiceInput onTranscript={(text) => setPrompt((prev) => prev ? prev + " " + text : text)} />
                         </label>
                         <textarea
                             value={prompt}
@@ -1020,8 +1024,9 @@ export default function GeneratePage() {
 
                     {/* Negative Prompt */}
                     <div style={cardStyle}>
-                        <label style={labelStyle}>
-                            🚫 Negative Prompt
+                        <label style={{ ...labelStyle, display: 'flex', justifyContent: 'space-between' }}>
+                            <div>🚫 Negative Prompt</div>
+                            <VoiceInput onTranscript={(text) => setNegativePrompt((prev) => prev ? prev + " " + text : text)} />
                         </label>
                         <textarea
                             value={negativePrompt}

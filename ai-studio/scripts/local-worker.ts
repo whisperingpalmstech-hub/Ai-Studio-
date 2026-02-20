@@ -115,7 +115,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'jersey', 'tunic', 'pullover', 'windbreaker', 'parka', 'fleece'],
             // SPECIFIC DETECTION: Avoid "clothing/garment" as it often detects the whole person.
             dinoParts: ['shirt', 'top', 'jacket', 'sweater'],
-            denoise: 0.55,
+            denoise: 0.75, // Increased denoise for significant changes
             threshold: 0.35, // Higher threshold for better isolation
             dilation: 10,
             negatives: 'wrong neckline, mismatched sleeves',
@@ -126,7 +126,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'chinos', 'joggers', 'cargo pants', 'culottes', 'palazzo', 'flares', 'capri',
                 'bermuda', 'sweatpants', 'track pants', 'dhoti'],
             dinoParts: ['pants', 'trousers', 'jeans', 'skirt'],
-            denoise: 0.55,
+            denoise: 0.70, // Increased denoise
             threshold: 0.35,
             dilation: 10,
             negatives: 'wrong leg shape',
@@ -139,7 +139,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
                 'wardrobe', 'frock', 'anarkali', 'churidar', 'sharara', 'ghagra', 'kaftan',
                 'abaya', 'kimono', 'hanbok', 'overalls', 'bodysuit', 'onesie'],
             dinoParts: ['dress', 'gown', 'outfit', 'suit', 'saree', 'lehenga'],
-            denoise: 0.55,
+            denoise: 0.75, // Increased denoise so complete clothing changes like shape/color apply properly
             threshold: 0.3,
             dilation: 12,
             negatives: 'previous clothing visible, mixed outfit styles, old garment showing',
@@ -399,7 +399,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
         console.log('⚠️ No specific region detected in prompt, defaulting to specific clothing nouns');
         // AVOID broad terms like "clothing" or "garment" - they detect the whole person!
         allDinoParts = ['shirt', 'dress', 'top', 'outfit'];
-        maxDenoise = 0.50;
+        maxDenoise = 0.75;
         maxDilation = 10;
         minThreshold = 0.35; // Stricter for fallback to avoid identity change
         matchedRegions.push('general_fallback');
@@ -410,7 +410,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = ''): In
     if (matchedRegions.length > 1) {
         if (isClothingOnly) {
             // Clothing-only multi-region: moderate denoise to allow change while preserving identity
-            maxDenoise = Math.min(maxDenoise + 0.05, 0.60);
+            maxDenoise = Math.min(maxDenoise + 0.05, 0.80);
             maxDilation = Math.min(maxDilation + 4, 14);
             console.log(`🔀 Multi-region CLOTHING change: ${matchedRegions.join(' + ')} (identity-safe mode)`);
         } else {
@@ -1653,13 +1653,17 @@ async function processJob(job: any) {
             // Check if this is an auto-mask job (Grok AI / GroundingDINO+SAM)
             if (job.params.auto_mask) {
                 console.log(`🎭 Auto-Mask Mode Detected — routing to auto_inpaint pipeline`);
-                console.log(`   mask_prompt: "${job.params.mask_prompt || job.params.prompt}"`);
+                console.log(`   user prompt received: "${job.params.prompt}"`);
+
+                // CRITICAL FIX: The frontend might pass the user's FULL prompt as `mask_prompt`. 
+                // GroundingDINO errors wildly on full sentences. If it's the exact same as prompt, delete it.
+                if (job.params.mask_prompt && job.params.mask_prompt === job.params.prompt) {
+                    console.log(`   ⚠️ mask_prompt matches full text prompt! Deleting to allow DINO Noun AI to extract keywords instead.`);
+                    delete job.params.mask_prompt;
+                }
+
                 // Override the job type so generateSimpleWorkflow picks the auto_inpaint branch
                 job.type = "auto_inpaint";
-                // Ensure mask_prompt is set (fallback to the main prompt for DINO detection)
-                if (!job.params.mask_prompt) {
-                    job.params.mask_prompt = job.params.prompt || "clothes";
-                }
             } else {
                 // Manual mask mode — require mask_filename
                 if (!maskFilename) {
