@@ -1204,7 +1204,7 @@ const generateSimpleWorkflow = (params: any) => {
 
         workflow[ID.CHECKPOINT] = {
             class_type: "UNETLoader",
-            inputs: { unet_name: videoModel, weight_dtype: "default" }
+            inputs: { unet_name: videoModel, weight_dtype: "fp8_e4m3fn" } // Optimize for VRAM (8-12GB)
         };
 
         workflow[ID.VAE_LOADER] = {
@@ -1233,7 +1233,7 @@ const generateSimpleWorkflow = (params: any) => {
                 inputs: {
                     width: params.width || 832,
                     height: params.height || 480,
-                    length: params.video_frames || 81,
+                    length: params.video_frames || 16, // Default to 16 for memory safety
                     batch_size: 1
                 }
             };
@@ -1582,7 +1582,7 @@ const generateSimpleWorkflow = (params: any) => {
                 force_size: "Custom",
                 custom_width: isWan ? 832 : 768,
                 custom_height: isWan ? 480 : 448,
-                frame_load_cap: params.video_frames || 64,
+                frame_load_cap: params.video_frames || (isWan ? 32 : 64), // Reduce for Wan to avoid OOM
                 skip_first_frames: 0,
                 select_every_nth: 1
             }
@@ -1624,7 +1624,7 @@ const generateSimpleWorkflow = (params: any) => {
 
             workflow[ID_VID.WAN_UNET] = {
                 class_type: "UNETLoader",
-                inputs: { unet_name: baseModel, weight_dtype: "default" }
+                inputs: { unet_name: baseModel, weight_dtype: "fp8_e4m3fn" } // Optimize for VRAM (8-12GB)
             };
 
             workflow[ID_VID.WAN_VAE] = {
