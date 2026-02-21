@@ -378,9 +378,10 @@ export default function GenerateVideoPage() {
 
                 setAvailableModels(filtered);
                 if (filtered.length > 0) {
-                    // Smart Default: if video mode and we have a Wan model, pick it!
-                    const wanModel = filtered.find(m => m.name.toLowerCase().includes('wan'));
-                    setSelectedModel(wanModel || filtered[0]);
+                    // Smart Default: prioritize 1.3B models as they are safer for 8GB-12GB GPUs
+                    const bestWan = filtered.find(m => m.name.toLowerCase().includes('1.3b')) ||
+                        filtered.find(m => m.name.toLowerCase().includes('wan'));
+                    setSelectedModel(bestWan || filtered[0]);
                 }
             }
         };

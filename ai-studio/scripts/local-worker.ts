@@ -1199,7 +1199,8 @@ const generateSimpleWorkflow = (params: any) => {
     else if (type === "t2v" || type === "i2v") {
         let videoModel = params.model_id;
         if (!videoModel || !videoModel.toLowerCase().includes('wan')) {
-            videoModel = (type === "t2v" ? "wan2.1_t2v_1.3B_bf16.safetensors" : "wan2.1_i2v_720p_14B_bf16.safetensors");
+            // Default both T2V and I2V to 1.3B for 8GB VRAM safety
+            videoModel = "wan2.1_t2v_1.3B_bf16.safetensors";
         }
 
         workflow[ID.CHECKPOINT] = {
@@ -1571,7 +1572,11 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         // SMART ENGINE SELECTION
-        let baseModel = params.model_id || "sd_xl_base_1.0.safetensors";
+        let baseModel = params.model_id;
+        // If generically requesting "wan" or missing, use the lightweight 1.3B model for memory stability
+        if (!baseModel || (baseModel.toLowerCase().includes('wan') && !baseModel.toLowerCase().includes('.safetensors'))) {
+            baseModel = "wan2.1_t2v_1.3B_bf16.safetensors";
+        }
         const isWan = baseModel.toLowerCase().includes('wan');
 
         workflow[ID_VID.LOAD_VIDEO] = {
