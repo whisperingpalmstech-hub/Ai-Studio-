@@ -1204,7 +1204,7 @@ const generateSimpleWorkflow = (params: any) => {
 
         workflow[ID.CHECKPOINT] = {
             class_type: "UNETLoader",
-            inputs: { unet_name: videoModel, weight_dtype: "fp32" } // Force high precision for all Wan workflows
+            inputs: { unet_name: videoModel, weight_dtype: "default" }
         };
 
         workflow[ID.VAE_LOADER] = {
@@ -1300,7 +1300,8 @@ const generateSimpleWorkflow = (params: any) => {
                 format: "video/h264-mp4",
                 pix_fmt: "yuv420p",
                 crf: 19,
-                save_output: true
+                save_output: true,
+                pingpong: false
             }
         };
 
@@ -1623,7 +1624,7 @@ const generateSimpleWorkflow = (params: any) => {
 
             workflow[ID_VID.WAN_UNET] = {
                 class_type: "UNETLoader",
-                inputs: { unet_name: baseModel, weight_dtype: "fp32" } // Force high precision as requested
+                inputs: { unet_name: baseModel, weight_dtype: "default" }
             };
 
             workflow[ID_VID.WAN_VAE] = {
@@ -1757,7 +1758,8 @@ const generateSimpleWorkflow = (params: any) => {
                 format: "video/h264-mp4",
                 pix_fmt: "yuv420p",
                 crf: 19,
-                save_output: true
+                save_output: true,
+                pingpong: false
             }
         };
     }
