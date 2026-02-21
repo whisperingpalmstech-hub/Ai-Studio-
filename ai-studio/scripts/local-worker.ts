@@ -1570,6 +1570,7 @@ const generateSimpleWorkflow = (params: any) => {
             SAMPLER: "14",
             VAE_DECODE: "15",
             VIDEO_COMBINE: "16",
+            EVOLVED_SAMPLING: "19",
             // Wan-specific nodes
             WAN_VAE: "20",
             WAN_CLIP: "21",
@@ -1745,15 +1746,23 @@ const generateSimpleWorkflow = (params: any) => {
             workflow[ID_VID.AD_APPLY] = {
                 class_type: "ADE_ApplyAnimateDiffModelSimple",
                 inputs: {
-                    model: [ID_VID.CHECKPOINT, 0],
                     motion_model: [ID_VID.AD_LOADER, 0]
+                }
+            };
+
+            workflow[ID_VID.EVOLVED_SAMPLING] = {
+                class_type: "ADE_UseEvolvedSampling",
+                inputs: {
+                    model: [ID_VID.CHECKPOINT, 0],
+                    beta_schedule: "autoselect",
+                    m_models: [ID_VID.AD_APPLY, 0]
                 }
             };
 
             workflow[ID_VID.SAMPLER] = {
                 class_type: "KSampler",
                 inputs: {
-                    model: [ID_VID.AD_APPLY, 0],
+                    model: [ID_VID.EVOLVED_SAMPLING, 0],
                     positive: [ID_VID.PROMPT_POS, 0],
                     negative: [ID_VID.PROMPT_NEG, 0],
                     latent_image: [ID_VID.SET_LATENT_MASK, 0],
