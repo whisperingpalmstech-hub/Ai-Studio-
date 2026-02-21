@@ -1570,6 +1570,7 @@ const generateSimpleWorkflow = (params: any) => {
             SAMPLER: "14",
             VAE_DECODE: "15",
             VIDEO_COMBINE: "16",
+            CONTEXT: "18",
             EVOLVED_SAMPLING: "19",
             // Wan-specific nodes
             WAN_VAE: "20",
@@ -1596,7 +1597,7 @@ const generateSimpleWorkflow = (params: any) => {
                 force_size: "Custom",
                 custom_width: isWan ? 832 : 768,
                 custom_height: isWan ? 480 : 448,
-                frame_load_cap: params.video_frames || (isWan ? 16 : 64), // Reduce for Wan to avoid OOM on 8GB
+                frame_load_cap: params.video_frames || (isWan ? 16 : 32), // Reduce for 8GB stability. AD handles 32 well.
                 skip_first_frames: 0,
                 select_every_nth: 1
             }
@@ -1750,12 +1751,26 @@ const generateSimpleWorkflow = (params: any) => {
                 }
             };
 
+            workflow[ID_VID.CONTEXT] = {
+                class_type: "ADE_StandardUniformContextOptions",
+                inputs: {
+                    context_length: 16,
+                    context_stride: 1,
+                    context_overlap: 4,
+                    fuse_method: "flat",
+                    use_on_equal_length: false,
+                    start_percent: 0.0,
+                    guarantee_steps: 1
+                }
+            };
+
             workflow[ID_VID.EVOLVED_SAMPLING] = {
                 class_type: "ADE_UseEvolvedSampling",
                 inputs: {
                     model: [ID_VID.CHECKPOINT, 0],
                     beta_schedule: "autoselect",
-                    m_models: [ID_VID.AD_APPLY, 0]
+                    m_models: [ID_VID.AD_APPLY, 0],
+                    context_options: [ID_VID.CONTEXT, 0]
                 }
             };
 
