@@ -430,7 +430,6 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = '', use
     }
 
     // ============ CALCULATE FINAL VALUES ============
-
     // Ensure we don't have a suspiciously low threshold (which causes background/skin bleed)
     if (minThreshold < 0.25) minThreshold = 0.3;
 
@@ -438,9 +437,9 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = '', use
     if (matchedRegions.length === 0) {
         console.log('⚠️ No specific region detected in prompt, defaulting to specific clothing nouns');
         // AVOID broad terms like "clothing" or "garment" - they detect the whole person!
-        allDinoParts = ['shirt', 'dress', 'top', 'outfit'];
+        allDinoParts = ['shirt', 'dress', 'top', 'outfit', 'jacket', 'pants'];
         maxDenoise = 0.75;
-        maxDilation = 10;
+        maxDilation = 15;
         minThreshold = 0.35; // Stricter for fallback to avoid identity change
         matchedRegions.push('general_fallback');
         isClothingOnly = true;
@@ -499,7 +498,7 @@ function analyzeInpaintPrompt(userPrompt: string, userNegative: string = '', use
     const changeType = matchedRegions.join('+');
     const negativeAdditions = Array.from(new Set(allNegatives)).join(', ');
 
-    console.log(`🧠 Smart Prompt Analysis (v4 — Negative-Aware):`);
+    console.log(`🧠 Smart Prompt Analysis (v5 — Mask-Optimized):`);
     console.log(`   User Prompt: "${userPrompt.substring(0, 80)}${userPrompt.length > 80 ? '...' : ''}"`);
     console.log(`   Negative Prompt: "${userNegative.substring(0, 80)}${userNegative.length > 80 ? '...' : ''}"`);
     console.log(`   Matched Regions: [${matchedRegions.join(', ')}]`);
@@ -1497,14 +1496,14 @@ const generateSimpleWorkflow = (params: any) => {
     }
     // Video Auto-Mask: GroundingDINO + SAM masking across video frames (Enterprise Cinematic)
     else if (type === "video_inpaint") {
-        const analysis = analyzeInpaintPrompt(params.prompt || '', params.negative_prompt || '');
+        const analysis = analyzeInpaintPrompt(params.prompt || '', params.negative_prompt || '', params.mask_prompt);
         const dinoPrompt = params.mask_prompt || analysis.dinoPrompt;
 
         // Identity protection for video is even more critical
         const identityProtection = 'different person, changed identity, flickering face, distorted features, changing features, unstable face';
         let enhancedNegative = (params.negative_prompt || '') + ', ' + identityProtection + ', ' + analysis.negativeAdditions;
 
-        console.log(`🎬 Building CINEMATIC video auto-mask workflow:`);
+        console.log(`🎬 Building HIGH-QUALITY video auto-mask workflow:`);
         console.log(`   Video: "${params.video_filename}"`);
         console.log(`   DINO Detect: "${dinoPrompt}"`);
         console.log(`   Inpaint Prompt: "${params.prompt}"`);
@@ -1525,21 +1524,16 @@ const generateSimpleWorkflow = (params: any) => {
             AD_APPLY: "13",
             SAMPLER: "14",
             VAE_DECODE: "15",
-            VIDEO_COMBINE: "16"
+            VIDEO_COMBINE: "16",
+            // Wan-specific nodes
+            WAN_VAE: "20",
+            WAN_CLIP: "21",
+            WAN_UNET: "22"
         };
 
-        // SMART CHECKPOINT SELECTION
-        // AnimateDiff requires SD 1.5 or SDXL models as the backbone.
-        // It cannot use Wan 2.1 or SVD. 
-        let baseCheckpoint = params.model_id || "sd_xl_base_1.0.safetensors";
-        const modelLower = baseCheckpoint.toLowerCase();
-
-        if (modelLower.includes('wan') || modelLower.includes('svd') || modelLower.includes('video')) {
-            console.log(`⚠️ Model ${baseCheckpoint} is a video model. AnimateDiff requires an SD Backbone. Switching to SDXL Base.`);
-            baseCheckpoint = "sd_xl_base_1.0.safetensors";
-        }
-
-        console.log(`🚀 Using inpaint backbone: ${baseCheckpoint}`);
+        // SMART ENGINE SELECTION
+        let baseModel = params.model_id || "sd_xl_base_1.0.safetensors";
+        const isWan = baseModel.toLowerCase().includes('wan');
 
         workflow[ID_VID.LOAD_VIDEO] = {
             class_type: "VHS_LoadVideo",
@@ -1547,9 +1541,9 @@ const generateSimpleWorkflow = (params: any) => {
                 video: params.video_filename || "input.mp4",
                 force_rate: 0,
                 force_size: "Custom",
-                custom_width: 768, // Hardcoded for 8GB VRAM safety with AnimateDiff
-                custom_height: 448, // Multiple of 64
-                frame_load_cap: params.video_frames || (baseCheckpoint.includes('xl') ? 64 : 96),
+                custom_width: isWan ? 832 : 768,
+                custom_height: isWan ? 480 : 448,
+                frame_load_cap: params.video_frames || 64,
                 skip_first_frames: 0,
                 select_every_nth: 1
             }
@@ -1562,7 +1556,7 @@ const generateSimpleWorkflow = (params: any) => {
 
         workflow[ID_VID.SAM_LOADER] = {
             class_type: "SAMModelLoader (segment anything)",
-            inputs: { model_name: "sam_vit_b (375MB)" } // Use VIT-B for memory efficiency on 8GB
+            inputs: { model_name: "sam_vit_b (375MB)" }
         };
 
         workflow[ID_VID.DINO_SAM_SEGMENT] = {
@@ -1578,138 +1572,154 @@ const generateSimpleWorkflow = (params: any) => {
 
         workflow[ID_VID.MASK_DILATE] = {
             class_type: "ImpactDilateMask",
-            inputs: { mask: [ID_VID.DINO_SAM_SEGMENT, 1], dilation: analysis.maskDilation + 4 }
+            inputs: { mask: [ID_VID.DINO_SAM_SEGMENT, 1], dilation: analysis.maskDilation + 8 }
         };
 
         workflow[ID_VID.MASK_BLUR] = {
             class_type: "ImpactGaussianBlurMask",
-            inputs: { mask: [ID_VID.MASK_DILATE, 0], kernel_size: 15, sigma: 6 }
+            inputs: { mask: [ID_VID.MASK_DILATE, 0], kernel_size: 25, sigma: 12 }
         };
 
+        if (isWan) {
+            console.log(`🔥 Engaging WAN 2.1 Cinematic Inpaint Engine...`);
 
-        workflow[ID_VID.CHECKPOINT] = {
-            class_type: "CheckpointLoaderSimple",
-            inputs: { ckpt_name: baseCheckpoint }
-        };
+            workflow[ID_VID.WAN_UNET] = {
+                class_type: "UNETLoader",
+                inputs: { unet_name: baseModel, weight_dtype: "default" }
+            };
 
-        workflow[ID_VID.PROMPT_POS] = {
-            class_type: "CLIPTextEncode",
-            inputs: { text: params.prompt, clip: [ID_VID.CHECKPOINT, 1] }
-        };
+            workflow[ID_VID.WAN_VAE] = {
+                class_type: "VAELoader",
+                inputs: { vae_name: "wan_2.1_vae.safetensors" }
+            };
 
-        workflow[ID_VID.PROMPT_NEG] = {
-            class_type: "CLIPTextEncode",
-            inputs: { text: enhancedNegative, clip: [ID_VID.CHECKPOINT, 1] }
-        };
+            workflow[ID_VID.WAN_CLIP] = {
+                class_type: "CLIPLoader",
+                inputs: { clip_name: "umt5_xxl_fp8_e4m3fn_scaled.safetensors", type: "wan" }
+            };
 
-        workflow[ID_VID.VAE_ENCODE] = {
-            class_type: "VAEEncodeTiled",
-            inputs: {
-                pixels: [ID_VID.LOAD_VIDEO, 0],
-                vae: [ID_VID.CHECKPOINT, 2],
-                tile_size: 512,
-                overlap: 64,
-                temporal_size: 64,
-                temporal_overlap: 8
+            workflow[ID_VID.PROMPT_POS] = {
+                class_type: "CLIPTextEncode",
+                inputs: { text: params.prompt, clip: [ID_VID.WAN_CLIP, 0] }
+            };
+            workflow[ID_VID.PROMPT_NEG] = {
+                class_type: "CLIPTextEncode",
+                inputs: { text: enhancedNegative, clip: [ID_VID.WAN_CLIP, 0] }
+            };
+
+            workflow[ID_VID.VAE_ENCODE] = {
+                class_type: "VAEEncode",
+                inputs: { pixels: [ID_VID.LOAD_VIDEO, 0], vae: [ID_VID.WAN_VAE, 0] }
+            };
+
+            workflow[ID_VID.SET_LATENT_MASK] = {
+                class_type: "SetLatentNoiseMask",
+                inputs: { samples: [ID_VID.VAE_ENCODE, 0], mask: [ID_VID.MASK_BLUR, 0] }
+            };
+
+            workflow[ID_VID.SAMPLER] = {
+                class_type: "KSampler",
+                inputs: {
+                    model: [ID_VID.WAN_UNET, 0],
+                    positive: [ID_VID.PROMPT_POS, 0],
+                    negative: [ID_VID.PROMPT_NEG, 0],
+                    latent_image: [ID_VID.SET_LATENT_MASK, 0],
+                    seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
+                    steps: Number(params.steps) || 30,
+                    cfg: 6.0,
+                    sampler_name: "uni_pc_bh2",
+                    scheduler: "simple",
+                    denoise: 1.0
+                }
+            };
+
+            workflow[ID_VID.VAE_DECODE] = {
+                class_type: "VAEDecode",
+                inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.WAN_VAE, 0] }
+            };
+        } else {
+            // Standard AnimateDiff (SD1.5 or SDXL) Flow
+            let baseCheckpoint = baseModel;
+            const modelLower = baseCheckpoint.toLowerCase();
+
+            if (modelLower.includes('svd') || modelLower.includes('video')) {
+                baseCheckpoint = "sd_xl_base_1.0.safetensors";
             }
-        };
 
-        workflow[ID_VID.SET_LATENT_MASK] = {
-            class_type: "SetLatentNoiseMask",
-            inputs: { samples: [ID_VID.VAE_ENCODE, 0], mask: [ID_VID.MASK_BLUR, 0] }
-        };
+            workflow[ID_VID.CHECKPOINT] = {
+                class_type: "CheckpointLoaderSimple",
+                inputs: { ckpt_name: baseCheckpoint }
+            };
 
-        // Detect base model for AnimateDiff (SD1.5 vs SDXL)
-        // SDXL + AnimateDiff is very VRAM intensive and often OOMs on 8GB systems, or causes CLIP mismatches.
-        // We will force standard SD1.5 ("v1-5-pruned-emaonly.safetensors") unless explicitly capable.
-        let isSDXL = baseCheckpoint.toLowerCase().includes('xl') || baseCheckpoint.toLowerCase().includes('base_1.0');
+            workflow[ID_VID.PROMPT_POS] = {
+                class_type: "CLIPTextEncode",
+                inputs: { text: params.prompt, clip: [ID_VID.CHECKPOINT, 1] }
+            };
+            workflow[ID_VID.PROMPT_NEG] = {
+                class_type: "CLIPTextEncode",
+                inputs: { text: enhancedNegative, clip: [ID_VID.CHECKPOINT, 1] }
+            };
 
-        if (isSDXL) {
-            console.log("⚠️ SDXL detected for AnimateDiff. This may cause OOM on 8GB VRAM. Falling back to SD 1.5 backbone...");
-            baseCheckpoint = "v1-5-pruned-emaonly.safetensors";
-            isSDXL = false;
+            workflow[ID_VID.VAE_ENCODE] = {
+                class_type: "VAEEncodeTiled",
+                inputs: {
+                    pixels: [ID_VID.LOAD_VIDEO, 0],
+                    vae: [ID_VID.CHECKPOINT, 2],
+                    tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+                }
+            };
+
+            workflow[ID_VID.SET_LATENT_MASK] = {
+                class_type: "SetLatentNoiseMask",
+                inputs: { samples: [ID_VID.VAE_ENCODE, 0], mask: [ID_VID.MASK_BLUR, 0] }
+            };
+
+            const isSDXL = baseCheckpoint.toLowerCase().includes('xl') || baseCheckpoint.toLowerCase().includes('base_1.0');
+            const motionModel = isSDXL ? "mm_sdxl_v10_beta.safetensors" : "mm_sd_v15_v2.ckpt";
+
+            workflow[ID_VID.AD_LOADER] = {
+                class_type: "ADE_LoadAnimateDiffModel",
+                inputs: { model_name: motionModel }
+            };
+
+            workflow[ID_VID.AD_APPLY] = {
+                class_type: "ADE_ApplyAnimateDiffModelSimple",
+                inputs: { motion_model: [ID_VID.AD_LOADER, 0] }
+            };
+
+            workflow[ID_VID.SAMPLER] = {
+                class_type: "KSampler",
+                inputs: {
+                    model: [ID_VID.AD_APPLY, 0],
+                    positive: [ID_VID.PROMPT_POS, 0],
+                    negative: [ID_VID.PROMPT_NEG, 0],
+                    latent_image: [ID_VID.SET_LATENT_MASK, 0],
+                    seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
+                    steps: 30,
+                    cfg: 7.5,
+                    sampler_name: "euler_ancestral",
+                    scheduler: "karras",
+                    denoise: 0.70
+                }
+            };
+
+            workflow[ID_VID.VAE_DECODE] = {
+                class_type: "VAEDecode",
+                inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.CHECKPOINT, 2] }
+            };
         }
-
-        const motionModel = isSDXL ? "mm_sdxl_v10_beta.safetensors" : "mm_sd_v15_v2.ckpt";
-
-        // OVERRIDE CHECKPOINT in workflow 
-        workflow[ID_VID.CHECKPOINT].inputs.ckpt_name = baseCheckpoint;
-
-        // AnimateDiff Gen2 Chain for high stability
-        workflow[ID_VID.AD_LOADER] = {
-            class_type: "ADE_LoadAnimateDiffModel",
-            inputs: { model_name: motionModel }
-        };
-
-        workflow[ID_VID.AD_APPLY] = {
-            class_type: "ADE_ApplyAnimateDiffModelSimple",
-            inputs: {
-                motion_model: [ID_VID.AD_LOADER, 0]
-            }
-        };
-
-        const ID_CONTEXT = "18"; // Context window for handling > 32 frames
-        workflow[ID_CONTEXT] = {
-            class_type: "ADE_LoopedUniformContextOptions",
-            inputs: {
-                context_length: 12, // Reduced from 16 for 8GB VRAM safety
-                context_stride: 1,
-                context_overlap: 4,
-                closed_loop: false
-            }
-        };
-
-        const ID_EVOLVED = "17"; // Bridge node for Gen2 evolved
-        workflow[ID_EVOLVED] = {
-            class_type: "ADE_UseEvolvedSampling",
-            inputs: {
-                model: [ID_VID.CHECKPOINT, 0],
-                m_models: [ID_VID.AD_APPLY, 0],
-                context_options: [ID_CONTEXT, 0],
-                beta_schedule: "autoselect"
-            }
-        };
-
-        workflow[ID_VID.SAMPLER] = {
-            class_type: "KSampler",
-            inputs: {
-                model: [ID_EVOLVED, 0],
-                positive: [ID_VID.PROMPT_POS, 0],
-                negative: [ID_VID.PROMPT_NEG, 0],
-                latent_image: [ID_VID.SET_LATENT_MASK, 0],
-                seed: params.seed && params.seed !== -1 ? Number(params.seed) : Math.floor(Math.random() * 10000000),
-                steps: 25,
-                cfg: 7.0,
-                sampler_name: "dpmpp_2m",
-                scheduler: "karras",
-                denoise: 0.85 // High denoise ensures the prompt (e.g., color changes) takes effect on the masked area
-            }
-        };
-
-        workflow[ID_VID.VAE_DECODE] = {
-            class_type: "VAEDecodeTiled",
-            inputs: {
-                samples: [ID_VID.SAMPLER, 0],
-                vae: [ID_VID.CHECKPOINT, 2],
-                tile_size: 512,
-                overlap: 64,
-                temporal_size: 64,
-                temporal_overlap: 8
-            }
-        };
 
         workflow[ID_VID.VIDEO_COMBINE] = {
             class_type: "VHS_VideoCombine",
             inputs: {
                 images: [ID_VID.VAE_DECODE, 0],
-                frame_rate: params.fps || 12,
+                frame_rate: params.fps || 16,
                 loop_count: 0,
                 filename_prefix: "AiStudio_VideoInpaint",
                 format: "video/h264-mp4",
                 pix_fmt: "yuv420p",
-                save_output: true,
-                pingpong: false,
-                save_metadata: true
+                crf: 19,
+                save_output: true
             }
         };
     }
