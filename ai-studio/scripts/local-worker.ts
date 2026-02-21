@@ -1450,10 +1450,9 @@ const generateSimpleWorkflow = (params: any) => {
             primaryMaskNodeContext = [ID_INVERT, 0];
         }
 
-        // EXPLICIT FACE PROTECTION (Identity Lock)
-        // We detect the face/neck/eyes to ensure they are NOT in the mask.
-        // If invertDino is true, we already inverted a face/person mask, so we don't need a secondary subtraction!
-        const protectFace = !analysis.changeType.includes('face') && !analysis.changeType.includes('makeup') && !analysis.changeType.includes('hair') && !analysis.invertDino;
+        // DISABLED FOR 8GB VRAM STABILITY: Running DINO+SAM twice simultaneously causes PyTorch to OOM. 
+        // We now rely purely on the strong `identityProtection` negative prompt injections instead of explicit pixel subtraction.
+        const protectFace = false;
 
         if (protectFace) {
             workflow[ID_AI.FACE_DINO_SAM] = {
