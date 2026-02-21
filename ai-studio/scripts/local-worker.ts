@@ -660,6 +660,8 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["pix_fmt"] = "yuv420p";
                 inputs["crf"] = 19;
                 inputs["save_output"] = true;
+                inputs["pingpong"] = false;
+                inputs["save_metadata"] = true;
                 break;
 
             // Wan 2.1 Native Node Support
@@ -748,9 +750,9 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 class_type = "VHS_LoadVideo";
                 inputs["video"] = node.data.filename || "input.mp4";
                 inputs["force_rate"] = 0;
-                inputs["force_size"] = "Custom";
-                inputs["custom_width"] = node.data.width || 768;
-                inputs["custom_height"] = node.data.height || 432;
+                inputs["force_size"] = "Disabled";
+                inputs["custom_width"] = 512;
+                inputs["custom_height"] = 512;
                 inputs["frame_load_cap"] = node.data.frame_load_cap ?? 0; // 0 = unlimited
                 inputs["skip_first_frames"] = 0;
                 inputs["select_every_nth"] = 1;
