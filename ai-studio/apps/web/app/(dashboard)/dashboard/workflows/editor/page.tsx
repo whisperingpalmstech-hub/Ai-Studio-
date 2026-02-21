@@ -49,7 +49,11 @@ import {
     SAMModelLoaderNode,
     GroundingDinoSAMSegmentNode,
     MaskRefineNode,
-    InpaintConditioningNode
+    InpaintConditioningNode,
+    LoadVideoNode,
+    AnimateDiffLoaderNode,
+    AnimateDiffApplyNode,
+    TemporalBlendNode
 } from '@/components/workflow/CustomNodes';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useWebSocket } from '@/lib/useWebSocket';
@@ -86,7 +90,11 @@ const nodeTypes = {
     samModelLoader: SAMModelLoaderNode,
     groundingDinoSAMSegment: GroundingDinoSAMSegmentNode,
     maskRefine: MaskRefineNode,
-    inpaintConditioning: InpaintConditioningNode
+    inpaintConditioning: InpaintConditioningNode,
+    loadVideo: LoadVideoNode,
+    adLoader: AnimateDiffLoaderNode,
+    adApply: AnimateDiffApplyNode,
+    temporalBlend: TemporalBlendNode
 };
 
 const initialNodes: Node[] = [
@@ -537,6 +545,10 @@ function WorkflowEditorContent() {
         { type: 'groundingDinoSAMSegment', label: 'Dino+SAM Auto Mask', color: '#f59e0b' },
         { type: 'maskRefine', label: 'Mask Refine', color: '#94a3b8' },
         { type: 'inpaintConditioning', label: 'SDXL Inpaint Cond', color: '#6366f1' },
+        { type: 'loadVideo', label: 'Load Video', color: '#f43f5e' },
+        { type: 'adLoader', label: 'AnimateDiff Module', color: '#3b82f6' },
+        { type: 'adApply', label: 'AnimateDiff Context', color: '#3b82f6' },
+        { type: 'temporalBlend', label: 'Temporal Smoothing', color: '#ec4899' },
     ];
 
     const filteredNodeTypes = allNodeTypes.filter(n =>

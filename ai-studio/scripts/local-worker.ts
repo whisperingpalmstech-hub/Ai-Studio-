@@ -489,6 +489,32 @@ async function uploadImageToComfy(dataUrl: string, filename: string) {
     }
 }
 
+async function uploadVideoToComfy(dataUrl: string, filename: string) {
+    try {
+        const base64Data = dataUrl.split(',')[1];
+        if (!base64Data) return;
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // 1. Save to ComfyUI input directory
+        const fullPath = path.join(COMFYUI_INPUT_DIR, filename);
+        fs.writeFileSync(fullPath, buffer);
+        console.log(`💾 Saved video to storage: ${fullPath} (${buffer.length} bytes)`);
+
+        // 2. Upload via API (using /upload/image since it supports video formats too)
+        const form = new FormData();
+        form.append('image', buffer, { filename, contentType: 'video/mp4' });
+        form.append('overwrite', 'true');
+
+        await axios.post(`${COMFYUI_URL}/upload/image`, form, {
+            headers: form.getHeaders()
+        });
+        console.log(`📤 Notified ComfyUI API of video upload: ${filename}`);
+    } catch (err: any) {
+        console.error(`❌ FAILED to prepare video: ${err.message}`);
+        throw err;
+    }
+}
+
 // Import the workflow generator logic (Simplified for the script)
 
 // === ReactFlow to ComfyUI Converter (Enterprise Grade) ===
@@ -527,6 +553,15 @@ async function syncWorkflowAssets(nodes: ReactFlowNode[]) {
                 console.log(`📡 Workflow Sync: Uploading node ${node.id} mask...`);
                 await uploadImageToComfy(node.data.mask, maskFilename);
                 node.data.mask_filename = maskFilename; // Store for lookup
+            }
+        } else if (node.type === 'loadVideo') {
+            if (node.data.video && node.data.video.startsWith('data:video')) {
+                const ext = node.data.video.split(';')[0].split('/')[1] || 'mp4';
+                const filename = `wf_vid_${node.id}_${Date.now()}.${ext}`;
+                console.log(`📡 Workflow Sync: Uploading node ${node.id} video...`);
+                await uploadVideoToComfy(node.data.video, filename);
+                node.data.video = filename;
+                node.data.filename = filename;
             }
         }
     }
@@ -721,14 +756,20 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["select_every_nth"] = 1;
                 break;
             case "adLoader":
-                class_type = "ADE_AnimateDiffLoader";
+                class_type = "ADE_LoadAnimateDiffModel";
                 inputs["model_name"] = node.data.model || "mm_sdxl_v10_beta.safetensors";
                 break;
             case "adApply":
-                class_type = "ADE_AnimateDiffApply";
+                class_type = "ADE_ApplyAnimateDiffModelSimple";
+                // Virtual node for Gen2 Evolved Sampling
+                comfyWorkflow[`${node.id}_evolved`] = {
+                    class_type: "ADE_UseEvolvedSampling",
+                    inputs: { beta_schedule: "autoselect", model: undefined, m_models: undefined } // inputs will be patched in edge loop
+                };
                 break;
             case "temporalBlend":
-                class_type = "ADE_LatentTemporalBlend";
+                // Passthrough (Unsupported natively in AD Gen2 without extra scripts)
+                class_type = "PASS_THROUGH";
                 break;
 
             default:
@@ -799,6 +840,8 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 } else {
                     outputIndex = 0;
                 }
+            } else if (sourceNode?.type === "loadVideo") {
+                outputIndex = 0; // The VHS Video Loader outputs IMAGE at index 0, Audio at 1, Info at 2.
             } else if (sourceNode?.type === "groundingDinoLoader" || sourceNode?.type === "samModelLoader") {
                 outputIndex = 0;
             } else if (sourceNode?.type === "groundingDinoSAMSegment") {
@@ -810,10 +853,45 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 if (sourceHandle === "cond_pos") outputIndex = 0;
                 else if (sourceHandle === "cond_neg") outputIndex = 1;
                 else outputIndex = 2; // latent
+            } else if (sourceNode?.type === "adApply") {
+                outputIndex = 0; // M_MODELS
+            } else if (sourceNode?.type === "temporalBlend") {
+                // Find the source edge into temporalBlend to bypass it
+                const priorEdge = edges.find(e => e.target === edge.source);
+                if (priorEdge) {
+                    targetNode.inputs[inputName] = [priorEdge.source, 0];
+                }
+                return;
             }
-            // Add other index mappings as needed, but default 0 works for most
 
-            targetNode.inputs[inputName] = [edge.source, outputIndex];
+            // Patch ADApply edges to map to Gen2 properly
+            if (targetNode.class_type === "ADE_ApplyAnimateDiffModelSimple") {
+                if (inputName === "m_models" || inputName === "model_in" || inputName === "model") {
+                    // This came from Checkpoint -> adApply (or adLoader).
+                    if (sourceNode?.type === "loadModel") {
+                        // Plug checkpoint's MODEL into evolved node instead.
+                        comfyWorkflow[`${targetId}_evolved`].inputs["model"] = [edge.source, outputIndex];
+                        // Also link adApply's M_MODELS into evolved node.
+                        comfyWorkflow[`${targetId}_evolved`].inputs["m_models"] = [targetId, 0];
+                        return; // Skip filling input on ADE_ApplyAnimateDiffModelSimple
+                    } else if (sourceNode?.type === "adLoader") {
+                        // Plug adLoader's MOTION_MODEL_ADE into adApply
+                        targetNode.inputs["motion_model"] = [edge.source, outputIndex];
+                        return;
+                    }
+                }
+            }
+
+            // Make sure anything reading model from adApply actually reads from adApply_evolved
+            if (sourceNode?.type === "adApply" && sourceHandle !== "m_models") {
+                targetNode.inputs[inputName] = [`${edge.source}_evolved`, outputIndex];
+                return;
+            }
+
+            // Normal edge mapping
+            if (targetNode.class_type !== "PASS_THROUGH") {
+                targetNode.inputs[inputName] = [edge.source, outputIndex];
+            }
 
             // Debug: log InpaintModelConditioning and KSampler edge wiring
             if (targetNode.class_type === "InpaintModelConditioning" || targetNode.class_type === "KSampler") {

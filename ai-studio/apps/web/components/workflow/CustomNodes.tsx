@@ -1756,3 +1756,115 @@ export const InpaintConditioningNode = memo(({ id, data }: any) => {
     );
 });
 InpaintConditioningNode.displayName = 'InpaintConditioningNode';
+
+export const LoadVideoNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const result = event.target?.result as string;
+                updateData('video', result);
+                updateData('filename', file.name);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+    };
+
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label={data.label || "Load Video"} color="#f43f5e" icon={Upload} />
+            <div style={styles.body}>
+                <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                        padding: '16px',
+                        textAlign: 'center',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px dashed rgba(255,255,255,0.2)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        marginBottom: '12px'
+                    }}
+                >
+                    {data.filename ? (
+                        <div style={{ color: 'white', fontSize: '12px', wordBreak: 'break-all' }}>{data.filename}</div>
+                    ) : (
+                        <div style={{ color: '#9ca3af', fontSize: '12px' }}>Click to select video...</div>
+                    )}
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                />
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Frame Load Cap</label>
+                    <input type="number" defaultValue={data.frame_load_cap || 32} onChange={(e) => updateData('frame_load_cap', parseInt(e.target.value))} style={styles.input} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <IOHandle type="source" position={Position.Right} label="IMAGE" color="#fbbf24" id="image" />
+                </div>
+            </div>
+        </div>
+    );
+});
+LoadVideoNode.displayName = 'LoadVideoNode';
+
+export const AnimateDiffLoaderNode = memo(({ id, data }: any) => {
+    const updateData = useUpdateNodeData(id);
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label={data.label || "AnimateDiff Loader"} color="#3b82f6" icon={Box} />
+            <div style={styles.body}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Model Name</label>
+                    <input type="text" defaultValue={data.model || "mm_sdxl_v10_beta.safetensors"} onChange={(e) => updateData('model', e.target.value)} style={styles.input} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <IOHandle type="source" position={Position.Right} label="M_MODELS" color="#3b82f6" id="model" />
+                </div>
+            </div>
+        </div>
+    );
+});
+AnimateDiffLoaderNode.displayName = 'AnimateDiffLoaderNode';
+
+export const AnimateDiffApplyNode = memo(({ id, data }: any) => {
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label={data.label || "AnimateDiff Apply"} color="#3b82f6" icon={Activity} />
+            <div style={styles.body}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <IOHandle type="target" position={Position.Left} label="MODEL" color="#6366f1" id="model" />
+                        <IOHandle type="target" position={Position.Left} label="M_MODELS" color="#3b82f6" id="m_models" />
+                    </div>
+                    <IOHandle type="source" position={Position.Right} label="MODEL" color="#6366f1" id="model" />
+                </div>
+            </div>
+        </div>
+    );
+});
+AnimateDiffApplyNode.displayName = 'AnimateDiffApplyNode';
+
+export const TemporalBlendNode = memo(({ id, data }: any) => {
+    return (
+        <div style={getNodeStyle(data)}>
+            <NodeHeader label={data.label || "Latent Temporal Blend"} color="#ec4899" icon={Settings} />
+            <div style={styles.body}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                    <IOHandle type="target" position={Position.Left} label="LATENT" color="#ec4899" id="latent" />
+                    <IOHandle type="source" position={Position.Right} label="LATENT" color="#ec4899" id="samples" />
+                </div>
+            </div>
+        </div>
+    );
+});
+TemporalBlendNode.displayName = 'TemporalBlendNode';
