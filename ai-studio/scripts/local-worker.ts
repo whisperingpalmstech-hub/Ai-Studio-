@@ -1407,9 +1407,15 @@ const generateSimpleWorkflow = (params: any) => {
             inputs: { pixels: [ID_AI.LOAD_IMAGE, 0], vae: [ID_AI.CHECKPOINT, 2] }
         };
 
+        const ID_INVERT_MASK = "999";
+        workflow[ID_INVERT_MASK] = {
+            class_type: "InvertMask",
+            inputs: { mask: [ID_AI.BLUR_MASK, 0] }
+        };
+
         workflow[ID_AI.SET_LATENT_MASK] = {
             class_type: "SetLatentNoiseMask",
-            inputs: { samples: [ID_AI.VAE_ENCODE, 0], mask: [ID_AI.BLUR_MASK, 0] }
+            inputs: { samples: [ID_AI.VAE_ENCODE, 0], mask: [ID_INVERT_MASK, 0] }
         };
 
         const cfgForType = analysis.isClothingOnly ? 4.5 : (Number(params.cfg_scale) || 7.0);
