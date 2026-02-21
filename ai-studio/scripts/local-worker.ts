@@ -1289,11 +1289,10 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID.VAE_DECODE] = {
-            class_type: "VAEDecodeTiled",
+            class_type: "VAEDecode",
             inputs: {
                 samples: [ID.SAMPLER, 0],
-                vae: [ID.VAE_LOADER, 0],
-                tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+                vae: [ID.VAE_LOADER, 0]
             }
         };
 
@@ -1504,14 +1503,10 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID_AI.VAE_ENCODE] = {
-            class_type: "VAEEncodeTiled",
+            class_type: "VAEEncode",
             inputs: {
                 pixels: [ID_AI.LOAD_IMAGE, 0],
-                vae: [ID_AI.CHECKPOINT, 2],
-                tile_size: 512,
-                overlap: 64,
-                temporal_size: 64,
-                temporal_overlap: 8
+                vae: [ID_AI.CHECKPOINT, 2]
             }
         };
 
@@ -1540,14 +1535,10 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID_AI.VAE_DECODE] = {
-            class_type: "VAEDecodeTiled",
+            class_type: "VAEDecode",
             inputs: {
                 samples: [ID_AI.SAMPLER, 0],
-                vae: [ID_AI.CHECKPOINT, 2],
-                tile_size: 512,
-                overlap: 64,
-                temporal_size: 64,
-                temporal_overlap: 8
+                vae: [ID_AI.CHECKPOINT, 2]
             }
         };
 
