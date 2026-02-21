@@ -1287,8 +1287,12 @@ const generateSimpleWorkflow = (params: any) => {
         };
 
         workflow[ID.VAE_DECODE] = {
-            class_type: "VAEDecode",
-            inputs: { samples: [ID.SAMPLER, 0], vae: [ID.VAE_LOADER, 0] }
+            class_type: "VAEDecodeTiled",
+            inputs: {
+                samples: [ID.SAMPLER, 0],
+                vae: [ID.VAE_LOADER, 0],
+                tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+            }
         };
 
         workflow[ID.VHS_VIDEO_COMBINE] = {
@@ -1652,8 +1656,12 @@ const generateSimpleWorkflow = (params: any) => {
             };
 
             workflow[ID_VID.VAE_ENCODE] = {
-                class_type: "VAEEncode",
-                inputs: { pixels: [ID_VID.LOAD_VIDEO, 0], vae: [ID_VID.WAN_VAE, 0] }
+                class_type: "VAEEncodeTiled",
+                inputs: {
+                    pixels: [ID_VID.LOAD_VIDEO, 0],
+                    vae: [ID_VID.WAN_VAE, 0],
+                    tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+                }
             };
 
             workflow[ID_VID.SET_LATENT_MASK] = {
@@ -1678,8 +1686,12 @@ const generateSimpleWorkflow = (params: any) => {
             };
 
             workflow[ID_VID.VAE_DECODE] = {
-                class_type: "VAEDecode",
-                inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.WAN_VAE, 0] }
+                class_type: "VAEDecodeTiled",
+                inputs: {
+                    samples: [ID_VID.SAMPLER, 0],
+                    vae: [ID_VID.WAN_VAE, 0],
+                    tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+                }
             };
         } else {
             // Standard AnimateDiff (SD1.5 or SDXL) Flow
@@ -1728,7 +1740,10 @@ const generateSimpleWorkflow = (params: any) => {
 
             workflow[ID_VID.AD_APPLY] = {
                 class_type: "ADE_ApplyAnimateDiffModelSimple",
-                inputs: { motion_model: [ID_VID.AD_LOADER, 0] }
+                inputs: {
+                    model: [ID_VID.CHECKPOINT, 0],
+                    motion_model: [ID_VID.AD_LOADER, 0]
+                }
             };
 
             workflow[ID_VID.SAMPLER] = {
@@ -1748,8 +1763,12 @@ const generateSimpleWorkflow = (params: any) => {
             };
 
             workflow[ID_VID.VAE_DECODE] = {
-                class_type: "VAEDecode",
-                inputs: { samples: [ID_VID.SAMPLER, 0], vae: [ID_VID.CHECKPOINT, 2] }
+                class_type: "VAEDecodeTiled",
+                inputs: {
+                    samples: [ID_VID.SAMPLER, 0],
+                    vae: [ID_VID.CHECKPOINT, 2],
+                    tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8
+                }
             };
         }
 
