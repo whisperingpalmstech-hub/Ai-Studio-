@@ -252,6 +252,43 @@ export const WORKFLOW_TEMPLATES = [
         ]
     },
     {
+        id: 'tpl-wan-v2v',
+        name: 'Wan 2.1 Video-to-Video',
+        description: 'Transform an existing video into a cinematic masterpiece using Wan 2.1.',
+        category: 'Wan 2.1',
+        guide: {
+            summary: 'Redraws a source video using the powerful Wan 2.1 Video model.',
+            inputs: 'Source Video, Wan 2.1 T2V Model, CLIP T5, VAE.',
+            params: 'Denoise (0.55), Steps (30), CFG (6.0), Sampler (uni_pc_bh2).',
+            tips: 'Set denoise lower (0.4-0.6) to keep original motion while changing the style. Set Frame Load Cap to 0 for the whole video.'
+        },
+        nodes: [
+            { id: '1', type: 'loadVideo', position: { x: 50, y: 50 }, data: { label: 'Source Video', frame_load_cap: 81 } },
+            { id: '2', type: 'unetLoader', position: { x: 50, y: 300 }, data: { label: 'Wan 2.1 Model', model: 'wan2.1_t2v_1.3B_bf16.safetensors' } },
+            { id: '3', type: 'vaeLoader', position: { x: 50, y: 450 }, data: { label: 'Wan VAE', model: 'wan_2.1_vae.safetensors' } },
+            { id: '4', type: 'clipLoader', position: { x: 50, y: 600 }, data: { label: 'T5 Encoder', model: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors' } },
+            { id: '5', type: 'prompt', position: { x: 400, y: 50 }, data: { label: 'Positive Prompt', prompt: 'a high quality cinematic video, masterpiece' } },
+            { id: '6', type: 'prompt', position: { x: 400, y: 250 }, data: { label: 'Negative Prompt', prompt: 'distorted, low quality, blurred' } },
+            { id: '7', type: 'vaeEncode', position: { x: 400, y: 450 }, data: { label: 'VAE Encode' } },
+            { id: '8', type: 'sampler', position: { x: 750, y: 50 }, data: { label: 'Wan KSampler', steps: 30, cfg: 6.0, denoise: 0.55, sampler: 'uni_pc_bh2', scheduler: 'simple' } },
+            { id: '9', type: 'vaeDecode', position: { x: 1050, y: 50 }, data: { label: 'VAE Decode' } },
+            { id: '10', type: 'videoCombine', position: { x: 1350, y: 50 }, data: { label: 'Save Video', fps: 16 } }
+        ],
+        edges: [
+            { id: 'e1-7', source: '1', target: '7', sourceHandle: 'image', targetHandle: 'pixels' },
+            { id: 'e3-7', source: '3', target: '7', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e2-8', source: '2', target: '8', sourceHandle: 'model', targetHandle: 'model' },
+            { id: 'e4-5', source: '4', target: '5', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e4-6', source: '4', target: '6', sourceHandle: 'clip', targetHandle: 'clip' },
+            { id: 'e5-8', source: '5', target: '8', sourceHandle: 'conditioning', targetHandle: 'positive' },
+            { id: 'e6-8', source: '6', target: '8', sourceHandle: 'conditioning', targetHandle: 'negative' },
+            { id: 'e7-8', source: '7', target: '8', sourceHandle: 'latent', targetHandle: 'latent_in' },
+            { id: 'e8-9', source: '8', target: '9', sourceHandle: 'latent_out', targetHandle: 'samples' },
+            { id: 'e3-9', source: '3', target: '9', sourceHandle: 'vae', targetHandle: 'vae' },
+            { id: 'e9-10', source: '9', target: '10', sourceHandle: 'image', targetHandle: 'images' }
+        ]
+    },
+    {
         id: 'tpl-auto-inpaint',
         name: 'SDXL Auto-Mask Inpaint',
         description: 'Fully automated object replacement using GroundingDINO & SAM. Just type what you want to mask!',

@@ -751,7 +751,7 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 inputs["force_size"] = "Custom";
                 inputs["custom_width"] = node.data.width || 768;
                 inputs["custom_height"] = node.data.height || 432;
-                inputs["frame_load_cap"] = node.data.frame_load_cap || 16;
+                inputs["frame_load_cap"] = node.data.frame_load_cap ?? 0; // 0 = unlimited
                 inputs["skip_first_frames"] = 0;
                 inputs["select_every_nth"] = 1;
                 break;
@@ -773,11 +773,12 @@ function convertReactFlowToComfyUI(nodes: ReactFlowNode[], edges: ReactFlowEdge[
                 break;
 
             default:
-                class_type = node.type;
                 inputs = { ...node.data };
         }
 
-        comfyWorkflow[node.id] = { class_type, inputs };
+        if (class_type !== "PASS_THROUGH") {
+            comfyWorkflow[node.id] = { class_type, inputs };
+        }
     });
 
     edges.forEach(edge => {
